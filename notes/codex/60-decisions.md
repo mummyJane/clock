@@ -24,3 +24,4 @@
 - Make the `Check again` action call a dedicated backend endpoint that runs git commands, so the web UI can check for updates without SSH while keeping shell access on the server side only.
 - Expose system-health data through a separate `/api/system-status` endpoint instead of folding it into `/api/system`, so the lightweight setup state and the more Pi-specific runtime probes can evolve independently.
 - Use a dedicated sudoers drop-in for `/usr/sbin/shutdown` so the web UI can request reboot and halt actions without prompting for a password, while keeping privileged access narrower than full passwordless sudo.
+- Pass `safe.directory` as an inline git config on Task 9 update checks instead of mutating the service user's global git config, so user-owned working trees can be inspected safely without creating hidden host-specific git state.

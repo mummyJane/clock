@@ -97,3 +97,6 @@
 - Validation completed: `python -m py_compile project/web/server.py`.
 - Validation completed: started `ThreadingHTTPServer` with `CLOCK_POWER_ACTION_MODE=mock`, confirmed `GET /api/system-status` returned mounts/temperature/battery payloads, and confirmed `POST /api/actions/reboot` plus `POST /api/actions/halt` returned scheduled mock responses.
 - Validation issue: the first Task 9 smoke test used `tempfile.mkdtemp()` under `D:\clock` and still hit a Windows `PermissionError` on the scratch JSON files; reran inside `D:\clock\.codex-temp-tests\task9-http`, which passed.
+- Runtime follow-up: update checks against `/home/roger/clock` on the Pi initially failed with git `dubious ownership` because the service runs as `clock` while the checkout is owned by `roger`.
+- Fix applied: `project/web/server.py` now runs git commands with `-c safe.directory=<repo_path>` and returns a dedicated `repo-unreadable` status when path probing raises `PermissionError`.
+- Validation completed: `check_update_status()` against the local `D:\clock` checkout returned `up-to-date` and resolved the latest tag successfully after the safe-directory change.

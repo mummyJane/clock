@@ -131,7 +131,7 @@ def save_json(path: Path, payload: dict[str, Any]) -> None:
 
 def run_git(repo_path: Path, *args: str) -> str:
     result = subprocess.run(
-        ["git", "-C", str(repo_path), *args],
+        ["git", "-c", f"safe.directory={repo_path}", "-C", str(repo_path), *args],
         check=True,
         capture_output=True,
         text=True,
@@ -257,36 +257,50 @@ def request_power_action(action: str) -> dict[str, Any]:
     }
 
 
+def build_repo_status(status: str, message: str, checked_at: str, repo_path: Path | None = None) -> dict[str, Any]:
+    return {
+        "status": status,
+        "latest_release": "unknown",
+        "message": message,
+        "checked_at": checked_at,
+        "repo_path": str(repo_path) if repo_path is not None else "",
+    }
+
+
 def check_update_status(settings: dict[str, Any]) -> dict[str, Any]:
     repo_path_value = str(settings.get("repo_path", "")).strip()
     checked_at = current_timestamp()
 
     if not repo_path_value:
-        return {
-            "status": "repo-not-set",
-            "latest_release": "unknown",
-            "message": "Set the repository path in setup preferences to enable web update checks.",
-            "checked_at": checked_at,
-            "repo_path": "",
-        }
+        return build_repo_status(
+            "repo-not-set",
+            "Set the repository path in setup preferences to enable web update checks.",
+            checked_at,
+        )
 
     repo_path = Path(repo_path_value)
-    if not repo_path.exists():
-        return {
-            "status": "repo-missing",
-            "latest_release": "unknown",
-            "message": f"Repository path does not exist: {repo_path}",
-            "checked_at": checked_at,
-            "repo_path": str(repo_path),
-        }
-    if not (repo_path / ".git").exists():
-        return {
-            "status": "repo-invalid",
-            "latest_release": "unknown",
-            "message": f"Repository path is not a git checkout: {repo_path}",
-            "checked_at": checked_at,
-            "repo_path": str(repo_path),
-        }
+    try:
+        if not repo_path.exists():
+            return build_repo_status(
+                "repo-missing",
+                f"Repository path does not exist: {repo_path}",
+                checked_at,
+                repo_path,
+            )
+        if not (repo_path / ".git").exists():
+            return build_repo_status(
+                "repo-invalid",
+                f"Repository path is not a git checkout: {repo_path}",
+                checked_at,
+                repo_path,
+            )
+    except PermissionError:
+        return build_repo_status(
+            "repo-unreadable",
+            f"Repository path is not readable by the clock service user: {repo_path}",
+            checked_at,
+            repo_path,
+        )
 
     try:
         run_git(repo_path, "fetch", "--tags", "--quiet")
