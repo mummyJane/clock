@@ -197,13 +197,26 @@ async function loadSystemState() {
   renderSystemState(state);
 }
 
+function renderSystemHealthError(message) {
+  cpuTemperatureEl.textContent = "Unavailable";
+  batteryVoltageEl.textContent = "Unavailable";
+  mountCountEl.textContent = "0";
+  diskSummaryEl.textContent = "Unavailable";
+  mountStatusEl.innerHTML = `<p class="support-copy">${escapeHtml(message)}</p>`;
+}
+
 async function loadSystemStatus() {
   const status = await getJson("/api/system-status");
   renderSystemHealth(status);
 }
 
 async function refreshOverview() {
-  await Promise.all([loadSystemState(), loadSystemStatus()]);
+  const results = await Promise.allSettled([loadSystemState(), loadSystemStatus()]);
+  const failed = results.find((result) => result.status === "rejected");
+  if (failed) {
+    renderSystemHealthError(failed.reason?.message || "System health is unavailable.");
+    throw failed.reason;
+  }
 }
 
 async function checkUpdateStatus() {

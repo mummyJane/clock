@@ -154,22 +154,25 @@ def read_cpu_temperature() -> dict[str, Any]:
 
 
 def read_battery_voltage() -> dict[str, Any]:
-    if not POWER_SUPPLY_ROOT.exists():
-        return {"volts": None, "status": "unavailable", "source": "none"}
+    try:
+        if not POWER_SUPPLY_ROOT.exists():
+            return {"volts": None, "status": "unavailable", "source": "none"}
 
-    for supply in POWER_SUPPLY_ROOT.iterdir():
-        voltage_file = supply / "voltage_now"
-        if not voltage_file.exists():
-            continue
-        try:
-            raw_value = voltage_file.read_text(encoding="utf-8").strip()
-            return {
-                "volts": round(int(raw_value) / 1_000_000, 3),
-                "status": "ok",
-                "source": supply.name,
-            }
-        except (OSError, ValueError):
-            return {"volts": None, "status": "error", "source": supply.name}
+        for supply in POWER_SUPPLY_ROOT.iterdir():
+            voltage_file = supply / "voltage_now"
+            if not voltage_file.exists():
+                continue
+            try:
+                raw_value = voltage_file.read_text(encoding="utf-8").strip()
+                return {
+                    "volts": round(int(raw_value) / 1_000_000, 3),
+                    "status": "ok",
+                    "source": supply.name,
+                }
+            except (OSError, ValueError):
+                return {"volts": None, "status": "error", "source": supply.name}
+    except OSError:
+        return {"volts": None, "status": "error", "source": "none"}
 
     return {"volts": None, "status": "unavailable", "source": "none"}
 
@@ -178,10 +181,14 @@ def get_mount_status() -> list[dict[str, Any]]:
     mounts: list[dict[str, Any]] = []
     seen_mounts: set[str] = set()
     mounts_file = Path("/proc/mounts")
-    if not mounts_file.exists():
+    try:
+        if not mounts_file.exists():
+            return mounts
+        mount_lines = mounts_file.read_text(encoding="utf-8").splitlines()
+    except OSError:
         return mounts
 
-    for line in mounts_file.read_text(encoding="utf-8").splitlines():
+    for line in mount_lines:
         parts = line.split()
         if len(parts) < 3:
             continue
@@ -189,9 +196,9 @@ def get_mount_status() -> list[dict[str, Any]]:
         if filesystem in MOUNT_EXCLUDE_TYPES or mount_point in seen_mounts:
             continue
         mount_path = Path(mount_point)
-        if not mount_path.exists():
-            continue
         try:
+            if not mount_path.exists():
+                continue
             usage = shutil.disk_usage(mount_path)
         except OSError:
             continue
@@ -215,14 +222,23 @@ def get_mount_status() -> list[dict[str, Any]]:
 
 
 def build_system_status() -> dict[str, Any]:
-    mounts = get_mount_status()
-    return {
-        "checked_at": current_timestamp(),
-        "temperature": read_cpu_temperature(),
-        "battery": read_battery_voltage(),
-        "mounts": mounts,
-        "mount_count": len(mounts),
-    }
+    try:
+        mounts = get_mount_status()
+        return {
+            "checked_at": current_timestamp(),
+            "temperature": read_cpu_temperature(),
+            "battery": read_battery_voltage(),
+            "mounts": mounts,
+            "mount_count": len(mounts),
+        }
+    except OSError:
+        return {
+            "checked_at": current_timestamp(),
+            "temperature": {"celsius": None, "status": "error"},
+            "battery": {"volts": None, "status": "error", "source": "none"},
+            "mounts": [],
+            "mount_count": 0,
+        }
 
 
 def request_power_action(action: str) -> dict[str, Any]:
@@ -626,3 +642,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+

@@ -100,3 +100,6 @@
 - Runtime follow-up: update checks against `/home/roger/clock` on the Pi initially failed with git `dubious ownership` because the service runs as `clock` while the checkout is owned by `roger`.
 - Fix applied: `project/web/server.py` now runs git commands with `-c safe.directory=<repo_path>` and returns a dedicated `repo-unreadable` status when path probing raises `PermissionError`.
 - Validation completed: `check_update_status()` against the local `D:\clock` checkout returned `up-to-date` and resolved the latest tag successfully after the safe-directory change.
+- Runtime follow-up: the overview `System health` and `Storage mounts` panels stayed on loading text on the Pi, which indicated `/api/system-status` was likely failing partway through a platform-specific probe.
+- Fix applied: hardened `read_battery_voltage()`, `get_mount_status()`, and `build_system_status()` so probe failures return error/unavailable payloads instead of aborting the whole endpoint, and updated `project/web/static/app.js` to replace loading placeholders with a visible error message if the health request fails.
+- Validation completed: `python -m py_compile project/web/server.py` and an in-process HTTP smoke test confirmed `GET /api/system-status` still returns HTTP 200 with temperature, battery, and mounts keys.
