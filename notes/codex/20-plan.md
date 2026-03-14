@@ -15,3 +15,8 @@
 - in setup interface
     - clock format
     - clock size and location on the screen
+
+## Task 1 delivery
+- define a shared install and update script framework
+- provide latest and release-specific entrypoints
+- document the full install path for a Raspberry Pi 5

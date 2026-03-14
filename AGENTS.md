@@ -4,7 +4,7 @@
 
 ## Planning and task tracking
 - Use `notes/codex/20-plan.md` for milestone planning.
-- Read and Update `notes/project/nbody/30-tasks.md` as tasks are completed.
+- Read and Update `notes/codex/30-tasks.md` as tasks are completed.
 
 ## Context
 - Read and update `notes/codex/40-context.md` this is the full context
