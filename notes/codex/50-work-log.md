@@ -80,3 +80,13 @@
 - Updated `project/deploy/bin/start-bedside.sh` to pass `--no-first-run`, `--password-store=basic`, and disable password-manager onboarding/import prompts so Chromium kiosk mode does not request the desktop keyring password on autologin.
 - Updated `notes/codex/80-release-0.2.0.md` and the `0.2.0` delivery notes to include the keyring-prompt workaround.
 - Validation completed: reviewed the updated kiosk launcher flags in `project/deploy/bin/start-bedside.sh`.
+
+## 2026-03-14 Task 9
+- Re-read `AGENTS.md`, `notes/codex/20-plan.md`, `notes/codex/30-tasks.md`, and the current web update flow before editing.
+- Extended `project/web/server.py` to store a `repo_path` in setup settings and added `POST /api/update-status/check` to run `git fetch` plus ahead/behind checks against the configured checkout.
+- Updated `project/web/static/index.html` and `project/web/static/app.js` so setup preferences include the repository path and the `Check again` button performs a live backend update check instead of only reloading cached metadata.
+- Updated `project/web/data/update-status.json` and `project/web/README.md` to match the new update-check behavior.
+- Validation completed: `python -m py_compile project/web/server.py`.
+- Validation completed: called `validate_settings()` and `check_update_status()` directly against the current repository path and confirmed a valid update result was returned.
+- Validation completed: started `ThreadingHTTPServer` in-process, saved a repository path in settings, called `POST /api/update-status/check`, and confirmed `GET /api/update-status` returned the saved live git-check result.
+- Tooling issue: `apply_patch` continued to fail for `project/` files with `windows sandbox: setup refresh failed with status exit code: 1`, so the Task 9 project files were written via PowerShell `Set-Content`.

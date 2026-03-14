@@ -1,5 +1,7 @@
 {
-  "status": "unknown",
+  "status": "repo-not-set",
   "latest_release": "unknown",
-  "message": "No update metadata is available yet."
+  "message": "Set the repository path in setup preferences to enable web update checks.",
+  "checked_at": "never",
+  "repo_path": ""
 }

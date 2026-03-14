@@ -6,6 +6,8 @@ import json
 import mimetypes
 import os
 import socket
+import subprocess
+from datetime import datetime, timezone
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -43,10 +45,11 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "web_port": 8080,
     "ssh_enabled": True,
     "update_channel": "stable",
+    "repo_path": "",
 }
 
 DEFAULT_RELEASE: dict[str, Any] = {
-    "release": "0.1.0-dev",
+    "release": "0.2.0-dev",
     "updated_at": "unknown",
 }
 
@@ -54,6 +57,8 @@ DEFAULT_UPDATE_STATUS: dict[str, Any] = {
     "status": "unknown",
     "latest_release": "unknown",
     "message": "No update metadata is available yet.",
+    "checked_at": "never",
+    "repo_path": "",
 }
 
 DEFAULT_MODULES: dict[str, Any] = {
@@ -97,6 +102,122 @@ def save_json(path: Path, payload: dict[str, Any]) -> None:
         handle.write("\n")
 
 
+def run_git(repo_path: Path, *args: str) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(repo_path), *args],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
+
+
+def current_timestamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def check_update_status(settings: dict[str, Any]) -> dict[str, Any]:
+    repo_path_value = str(settings.get("repo_path", "")).strip()
+    checked_at = current_timestamp()
+
+    if not repo_path_value:
+        return {
+            "status": "repo-not-set",
+            "latest_release": "unknown",
+            "message": "Set the repository path in setup preferences to enable web update checks.",
+            "checked_at": checked_at,
+            "repo_path": "",
+        }
+
+    repo_path = Path(repo_path_value)
+    if not repo_path.exists():
+        return {
+            "status": "repo-missing",
+            "latest_release": "unknown",
+            "message": f"Repository path does not exist: {repo_path}",
+            "checked_at": checked_at,
+            "repo_path": str(repo_path),
+        }
+    if not (repo_path / ".git").exists():
+        return {
+            "status": "repo-invalid",
+            "latest_release": "unknown",
+            "message": f"Repository path is not a git checkout: {repo_path}",
+            "checked_at": checked_at,
+            "repo_path": str(repo_path),
+        }
+
+    try:
+        run_git(repo_path, "fetch", "--tags", "--quiet")
+        branch = run_git(repo_path, "rev-parse", "--abbrev-ref", "HEAD")
+        local_sha = run_git(repo_path, "rev-parse", "HEAD")
+        try:
+            upstream = run_git(repo_path, "rev-parse", "--abbrev-ref", "@{upstream}")
+        except subprocess.CalledProcessError:
+            latest_release = run_git(repo_path, "describe", "--tags", "--abbrev=0") if repo_has_tags(repo_path) else local_sha[:7]
+            return {
+                "status": "no-upstream",
+                "latest_release": latest_release,
+                "message": f"Branch {branch} has no upstream configured.",
+                "checked_at": checked_at,
+                "repo_path": str(repo_path),
+            }
+
+        remote_sha = run_git(repo_path, "rev-parse", upstream)
+        counts = run_git(repo_path, "rev-list", "--left-right", "--count", f"HEAD...{upstream}")
+        behind_count, ahead_count = [int(value) for value in counts.split()]
+        latest_release = describe_release(repo_path, upstream, remote_sha)
+
+        if behind_count > 0 and ahead_count > 0:
+            status = "diverged"
+            message = f"Local branch {branch} has diverged from {upstream}: {behind_count} behind, {ahead_count} ahead."
+        elif behind_count > 0:
+            status = "updates-available"
+            message = f"Local branch {branch} is {behind_count} commit(s) behind {upstream}."
+        elif ahead_count > 0:
+            status = "ahead"
+            message = f"Local branch {branch} is {ahead_count} commit(s) ahead of {upstream}."
+        else:
+            status = "up-to-date"
+            message = f"Local branch {branch} matches {upstream}."
+
+        return {
+            "status": status,
+            "latest_release": latest_release,
+            "message": message,
+            "checked_at": checked_at,
+            "repo_path": str(repo_path),
+            "branch": branch,
+            "upstream": upstream,
+            "local_sha": local_sha[:7],
+            "remote_sha": remote_sha[:7],
+        }
+    except subprocess.CalledProcessError as exc:
+        stderr = (exc.stderr or exc.stdout or str(exc)).strip()
+        return {
+            "status": "error",
+            "latest_release": "unknown",
+            "message": f"Git update check failed: {stderr}",
+            "checked_at": checked_at,
+            "repo_path": str(repo_path),
+        }
+
+
+def repo_has_tags(repo_path: Path) -> bool:
+    try:
+        run_git(repo_path, "describe", "--tags", "--abbrev=0")
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+
+def describe_release(repo_path: Path, ref: str, fallback_sha: str) -> str:
+    try:
+        return run_git(repo_path, "describe", "--tags", "--abbrev=0", ref)
+    except subprocess.CalledProcessError:
+        return fallback_sha[:7]
+
+
 def validate_settings(payload: Any) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError("Settings payload must be a JSON object.")
@@ -105,6 +226,7 @@ def validate_settings(payload: Any) -> dict[str, Any]:
     device_name = str(payload.get("device_name", DEFAULT_SETTINGS["device_name"])).strip()
     timezone = str(payload.get("timezone", DEFAULT_SETTINGS["timezone"])).strip()
     update_channel = str(payload.get("update_channel", DEFAULT_SETTINGS["update_channel"])).strip()
+    repo_path = str(payload.get("repo_path", DEFAULT_SETTINGS["repo_path"])).strip()
 
     if not device_name:
         raise ValueError("Device name is required.")
@@ -116,6 +238,7 @@ def validate_settings(payload: Any) -> dict[str, Any]:
     cleaned["device_name"] = device_name[:64]
     cleaned["timezone"] = timezone[:64]
     cleaned["ssh_enabled"] = bool(payload.get("ssh_enabled", DEFAULT_SETTINGS["ssh_enabled"]))
+    cleaned["repo_path"] = repo_path[:512]
 
     web_port = payload.get("web_port", DEFAULT_SETTINGS["web_port"])
     if isinstance(web_port, bool):
@@ -248,6 +371,9 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/modules":
             self.handle_save_modules()
             return
+        if parsed.path == "/api/update-status/check":
+            self.handle_check_update_status()
+            return
         self.send_error(HTTPStatus.NOT_FOUND, "Endpoint not found.")
 
     def handle_save_settings(self) -> None:
@@ -279,6 +405,12 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
             self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
             return
         self.send_json(modules, HTTPStatus.OK)
+
+    def handle_check_update_status(self) -> None:
+        settings = load_json(SETTINGS_PATH, DEFAULT_SETTINGS)
+        update_status = check_update_status(settings)
+        save_json(UPDATE_STATUS_PATH, update_status)
+        self.send_json(update_status, HTTPStatus.OK)
 
     def serve_static(self, request_path: str) -> None:
         normalized = request_path.lstrip("/") or "index.html"

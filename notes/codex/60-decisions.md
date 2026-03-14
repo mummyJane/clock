@@ -20,3 +20,5 @@
 - Use a systemd web service plus a desktop autostart Chromium launcher for Task 7, because that is the simplest dependency-free path to automatic bedside mode on Raspberry Pi OS with Desktop.
 - Resolve Chromium installation dynamically in the deploy helper, preferring `chromium` and only using `chromium-browser` when that older package name is what the image exposes.
 - Force Chromium kiosk mode to use `--password-store=basic` and `--no-first-run` so Raspberry Pi OS autologin sessions do not block on a keyring password prompt.
+- Use a configurable local repository path for web update checks instead of hardcoding a checkout location, because the user may keep the repo in different paths on different Pi installs.
+- Make the `Check again` action call a dedicated backend endpoint that runs git commands, so the web UI can check for updates without SSH while keeping shell access on the server side only.

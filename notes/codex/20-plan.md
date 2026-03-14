@@ -38,6 +38,11 @@
 - install a desktop autostart entry so the Pi opens the bedside page in kiosk mode after reboot
 - move live setup/module/update JSON data into `/var/lib/clock` so it survives application updates
 
+## Task 9 delivery
+- add a configurable local repository path to setup settings
+- run a real git-based update check from the web interface when `Check again` is pressed
+- persist the most recent update-check result so it is visible on reload
+
 ## Release 0.2.0 delivery
 - add the clock module settings required for bedside rendering
 - start the web runtime automatically on boot

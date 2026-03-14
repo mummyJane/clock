@@ -59,12 +59,15 @@
     - voltage on clock battery
     - tempures
 - Reboot and halt in web interface
+- web update check uses configured repo path and does not require SSH login
 
 ## Task 10
 - samba share
 - file view from the web interface
 - slect file to play, or display on screen (from web interface)
 - start, pause, stop play back button on screen
+- buttons only display once the display is touch
+- buttons auto hide after n seconds
 
 ## Task 11
 - Alarm module

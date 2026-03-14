@@ -57,6 +57,7 @@
               </div>
               <p id="updateSummary" class="status-copy">Loading update status...</p>
               <p id="updateMessage" class="support-copy"></p>
+              <p id="updateDetails" class="support-copy"></p>
             </article>
 
             <article class="panel panel-form">
@@ -75,6 +76,10 @@
                 <label>
                   <span>Web port</span>
                   <input id="webPort" name="web_port" type="number" min="1" max="65535" required>
+                </label>
+                <label>
+                  <span>Repository path</span>
+                  <input id="repoPath" name="repo_path" type="text" maxlength="512" placeholder="/home/pi/clock">
                 </label>
                 <label>
                   <span>Update channel</span>

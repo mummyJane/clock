@@ -19,3 +19,5 @@
 - Deployed installs now point the web server at `/var/lib/clock/*.json` for live state so setup and module choices survive application updates.
 - The current boot strategy is `clock-web.service` for the local server plus a desktop autostart entry that launches Chromium in kiosk mode on the bedside page.
 - Release `0.2.0` includes a Chromium kiosk launcher workaround to avoid desktop keyring password prompts on Raspberry Pi OS autologin sessions.
+- Task 9 now includes a configurable repository path in setup settings so the local web UI can run git update checks without requiring SSH access.
+- The `Check again` action now triggers a server-side `git fetch` and ahead/behind comparison against the configured upstream branch, then stores the result in `update-status.json`.

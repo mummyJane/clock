@@ -4,6 +4,7 @@ const installedReleaseEl = document.getElementById("installedRelease");
 const updatedAtEl = document.getElementById("updatedAt");
 const updateSummaryEl = document.getElementById("updateSummary");
 const updateMessageEl = document.getElementById("updateMessage");
+const updateDetailsEl = document.getElementById("updateDetails");
 const formStatusEl = document.getElementById("formStatus");
 const formEl = document.getElementById("settingsForm");
 const pageNavEl = document.getElementById("pageNav");
@@ -32,6 +33,7 @@ function setSettingsForm(settings) {
   document.getElementById("deviceName").value = settings.device_name || "";
   document.getElementById("timezone").value = settings.timezone || "";
   document.getElementById("webPort").value = settings.web_port || 8080;
+  document.getElementById("repoPath").value = settings.repo_path || "";
   document.getElementById("updateChannel").value = settings.update_channel || "stable";
   document.getElementById("sshEnabled").checked = Boolean(settings.ssh_enabled);
 }
@@ -84,6 +86,21 @@ function renderSystemState(systemState) {
 function renderUpdateStatus(updateStatus) {
   updateSummaryEl.textContent = `${updateStatus.status || "unknown"}: latest ${updateStatus.latest_release || "unknown"}`;
   updateMessageEl.textContent = updateStatus.message || "";
+
+  const details = [];
+  if (updateStatus.repo_path) {
+    details.push(`Repo: ${updateStatus.repo_path}`);
+  }
+  if (updateStatus.branch && updateStatus.upstream) {
+    details.push(`Branch: ${updateStatus.branch} -> ${updateStatus.upstream}`);
+  }
+  if (updateStatus.local_sha && updateStatus.remote_sha) {
+    details.push(`Commits: local ${updateStatus.local_sha}, remote ${updateStatus.remote_sha}`);
+  }
+  if (updateStatus.checked_at && updateStatus.checked_at !== "never") {
+    details.push(`Checked: ${updateStatus.checked_at}`);
+  }
+  updateDetailsEl.textContent = details.join(" | ");
 }
 
 async function loadSystemState() {
@@ -93,6 +110,18 @@ async function loadSystemState() {
 
 async function loadUpdateStatus() {
   const status = await getJson("/api/update-status");
+  renderUpdateStatus(status);
+}
+
+async function checkUpdateStatus() {
+  updateMessageEl.textContent = "Checking repository for updates...";
+  const status = await getJson("/api/update-status/check", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({}),
+  });
   renderUpdateStatus(status);
 }
 
@@ -230,6 +259,7 @@ async function saveSettings(event) {
     device_name: document.getElementById("deviceName").value,
     timezone: document.getElementById("timezone").value,
     web_port: Number(document.getElementById("webPort").value),
+    repo_path: document.getElementById("repoPath").value,
     update_channel: document.getElementById("updateChannel").value,
     ssh_enabled: document.getElementById("sshEnabled").checked,
   };
@@ -256,7 +286,7 @@ document.getElementById("refreshStatus").addEventListener("click", () => {
 });
 
 document.getElementById("refreshUpdate").addEventListener("click", () => {
-  loadUpdateStatus().catch((error) => {
+  checkUpdateStatus().catch((error) => {
     updateMessageEl.textContent = error.message;
   });
 });

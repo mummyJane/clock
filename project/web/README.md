@@ -14,10 +14,11 @@ The server listens on port `8080` by default and serves:
 - `GET /bedside.html` for the bedside runtime page
 - `GET /api/system` for hostname, IP address, release, update status, and modules
 - `GET /api/settings` for saved setup settings
-- `POST /api/settings` to save setup settings
+- `POST /api/settings` to save setup settings, including the local repository path for web update checks
 - `GET /api/modules` for installed module metadata, enabled state, and module settings
 - `POST /api/modules` to save module enabled state and module settings
-- `GET /api/update-status` for the current update metadata
+- `GET /api/update-status` for the last saved update-check result
+- `POST /api/update-status/check` to run `git fetch` and compare the configured local checkout with its upstream branch
 
 ## Data files
 
