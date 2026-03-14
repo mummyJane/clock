@@ -5,4 +5,5 @@
 - enabled modules rendered in bedside mode
 - systemd service starts the web runtime on boot
 - desktop autostart opens Chromium in kiosk mode after reboot
+- Chromium kiosk launcher avoids desktop keyring password prompts on autologin sessions
 - install and update latest entrypoints now target `0.2.0`

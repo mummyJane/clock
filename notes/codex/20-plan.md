@@ -43,6 +43,7 @@
 - start the web runtime automatically on boot
 - render enabled modules on the bedside display
 - update latest install and update entrypoints to target `0.2.0`
+- launch Chromium in kiosk mode without prompting for the desktop keyring password
 
 ## Task 1 delivery
 - define a shared install and update script framework

@@ -50,3 +50,33 @@
 
 ## Task 8
 - do release for 0.2.0
+- status: done 2026-03-14
+
+## Task 9
+- System status in web interface
+    - mounts
+    - disk space
+    - voltage on clock battery
+    - tempures
+- Reboot and halt in web interface
+
+## Task 10
+- samba share
+- file view from the web interface
+- slect file to play, or display on screen (from web interface)
+- start, pause, stop play back button on screen
+
+## Task 11
+- Alarm module
+    - add alarm
+    - delete alarm
+    - disable alarm
+    - play file from filesystem
+    - in n minutes/hours
+    - every day at set time
+    - on a or multi day at set time
+    - delete/disable alarm after alarm stop
+    - stop alarm
+
+## task 12
+- do release 0.3.0

@@ -18,3 +18,4 @@
 - Task 7 adds a bedside page at `/bedside.html` that renders the enabled modules from live state, with the clock module respecting its Task 6 settings.
 - Deployed installs now point the web server at `/var/lib/clock/*.json` for live state so setup and module choices survive application updates.
 - The current boot strategy is `clock-web.service` for the local server plus a desktop autostart entry that launches Chromium in kiosk mode on the bedside page.
+- Release `0.2.0` includes a Chromium kiosk launcher workaround to avoid desktop keyring password prompts on Raspberry Pi OS autologin sessions.

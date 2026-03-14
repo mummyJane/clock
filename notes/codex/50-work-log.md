@@ -74,3 +74,9 @@
 - Validation attempt: `bash -n project/deploy/lib/common.sh install/install-0.2.0.sh update/update-0.2.0.sh project/deploy/bin/start-bedside.sh` failed in this Windows workspace with `Bash/Service/CreateInstance/E_ACCESSDENIED`.
 - Tooling issue: `apply_patch` continued to fail for `project/` files with `windows sandbox: setup refresh failed with status exit code: 1`, so the Task 7 project files were written via PowerShell `Set-Content`.
 - Runtime fix: Raspberry Pi OS Trixie reported `chromium-browser` as unavailable, so `project/deploy/lib/common.sh` was updated to install `chromium` when present and only fall back to `chromium-browser` on older images.
+
+## 2026-03-14 Task 8
+- Finalized the `0.2.0` release notes and task tracking after Task 7 runtime testing on Raspberry Pi OS.
+- Updated `project/deploy/bin/start-bedside.sh` to pass `--no-first-run`, `--password-store=basic`, and disable password-manager onboarding/import prompts so Chromium kiosk mode does not request the desktop keyring password on autologin.
+- Updated `notes/codex/80-release-0.2.0.md` and the `0.2.0` delivery notes to include the keyring-prompt workaround.
+- Validation completed: reviewed the updated kiosk launcher flags in `project/deploy/bin/start-bedside.sh`.

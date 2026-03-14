@@ -29,6 +29,9 @@ fi
 exec "${BROWSER_BIN}" \
     --kiosk \
     --incognito \
+    --no-first-run \
+    --password-store=basic \
+    --disable-features=PasswordManagerOnboarding,PasswordsImport \
     --noerrdialogs \
     --disable-session-crashed-bubble \
     --disable-infobars \

@@ -19,3 +19,4 @@
 - Move deployed JSON state into `/var/lib/clock` and inject the paths through `clock.env`, because keeping live state under `/opt/clock/project` would cause updates to overwrite user settings and enabled modules.
 - Use a systemd web service plus a desktop autostart Chromium launcher for Task 7, because that is the simplest dependency-free path to automatic bedside mode on Raspberry Pi OS with Desktop.
 - Resolve Chromium installation dynamically in the deploy helper, preferring `chromium` and only using `chromium-browser` when that older package name is what the image exposes.
+- Force Chromium kiosk mode to use `--password-store=basic` and `--no-first-run` so Raspberry Pi OS autologin sessions do not block on a keyring password prompt.
