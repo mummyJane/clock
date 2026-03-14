@@ -3,7 +3,7 @@
     "clock": {
       "title": "Clock",
       "description": "Primary bedside clock surface.",
-      "enabled": true
+      "enabled": false
     }
   }
 }
