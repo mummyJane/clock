@@ -46,3 +46,7 @@
 ## Task 7
 - on reboot automaticly go into bedside mode
 - display enable modules
+- status: done 2026-03-14
+
+## Task 8
+- do release for 0.2.0

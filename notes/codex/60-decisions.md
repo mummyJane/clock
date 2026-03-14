@@ -15,3 +15,6 @@
 - Keep the Task 5 API as an in-process registration scaffold first, with stored alarms, config items, draw items, and input handlers, then bind those capabilities to the real bedside renderer in later tasks.
 - Keep clock settings inside `modules.json` rather than splitting them into a separate file, because they are part of module configuration and should travel with module enabled state.
 - Validate Task 6 clock settings on the server against explicit option sets so the web UI remains simple but bad values still cannot be persisted.
+- Keep the first bedside runtime inside the existing web server as `/bedside.html` so setup and bedside rendering share the same local service and data APIs.
+- Move deployed JSON state into `/var/lib/clock` and inject the paths through `clock.env`, because keeping live state under `/opt/clock/project` would cause updates to overwrite user settings and enabled modules.
+- Use a systemd web service plus a desktop autostart Chromium launcher for Task 7, because that is the simplest dependency-free path to automatic bedside mode on Raspberry Pi OS with Desktop.

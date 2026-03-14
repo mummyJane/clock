@@ -11,6 +11,7 @@ python3 server.py
 The server listens on port `8080` by default and serves:
 
 - `GET /` for the setup page
+- `GET /bedside.html` for the bedside runtime page
 - `GET /api/system` for hostname, IP address, release, update status, and modules
 - `GET /api/settings` for saved setup settings
 - `POST /api/settings` to save setup settings
@@ -34,6 +35,8 @@ The seeded `clock` module settings are:
 - `date_format`
 - `display_size`
 - `screen_position`
+
+For deployed installs, the systemd service points those JSON files at `/var/lib/clock/` so enabled modules and settings survive application updates.
 
 Use these environment variables to point at deployment paths:
 

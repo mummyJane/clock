@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Clock Bedside
+Comment=Launch the bedside clock surface
+Exec=/opt/clock/project/deploy/bin/start-bedside.sh
+X-GNOME-Autostart-enabled=true
+NoDisplay=false

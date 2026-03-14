@@ -1,0 +1,246 @@
+:root {
+  --bg: #07111c;
+  --panel: rgba(10, 25, 39, 0.78);
+  --line: rgba(195, 224, 255, 0.18);
+  --ink: #eaf4ff;
+  --muted: #91a9c1;
+  --accent: #ffd166;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top, rgba(73, 127, 191, 0.18), transparent 35%),
+    linear-gradient(180deg, #09121d 0%, var(--bg) 100%);
+}
+
+.bedside-shell {
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.bedside-modules {
+  min-height: calc(100vh - 48px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.bedside-modules.position-top-left {
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.bedside-modules.position-top-center {
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.bedside-modules.position-top-right {
+  align-items: flex-start;
+  justify-content: flex-end;
+}
+
+.bedside-modules.position-center-left {
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.bedside-modules.position-center {
+  align-items: center;
+  justify-content: center;
+}
+
+.bedside-modules.position-center-right {
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.bedside-modules.position-bottom-left {
+  align-items: flex-end;
+  justify-content: flex-start;
+}
+
+.bedside-modules.position-bottom-center {
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.bedside-modules.position-bottom-right {
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+.module-empty,
+.bedside-card {
+  border: 1px solid var(--line);
+  border-radius: 32px;
+  background: var(--panel);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(14px);
+}
+
+.module-empty {
+  width: min(640px, 100%);
+  padding: 32px;
+}
+
+.module-empty h1,
+.module-empty p,
+.bedside-card p {
+  margin: 0;
+}
+
+.module-empty p {
+  margin-top: 10px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.bedside-card {
+  padding: 28px 32px;
+}
+
+.clock-card {
+  display: grid;
+  gap: 18px;
+  justify-items: center;
+  text-align: center;
+}
+
+.clock-card.size-small {
+  min-width: 280px;
+}
+
+.clock-card.size-medium {
+  min-width: 420px;
+}
+
+.clock-card.size-large {
+  min-width: 560px;
+}
+
+.clock-label {
+  font-size: 0.9rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.clock-digital-time {
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.clock-card.size-small .clock-digital-time {
+  font-size: 4rem;
+}
+
+.clock-card.size-medium .clock-digital-time {
+  font-size: 5.5rem;
+}
+
+.clock-card.size-large .clock-digital-time {
+  font-size: 7.5rem;
+}
+
+.clock-date {
+  font-size: 1.1rem;
+  color: var(--muted);
+}
+
+.analog-clock-face {
+  position: relative;
+  border: 4px solid rgba(234, 244, 255, 0.25);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 209, 102, 0.12), transparent 60%);
+}
+
+.clock-card.size-small .analog-clock-face {
+  width: 220px;
+  height: 220px;
+}
+
+.clock-card.size-medium .analog-clock-face {
+  width: 320px;
+  height: 320px;
+}
+
+.clock-card.size-large .analog-clock-face {
+  width: 420px;
+  height: 420px;
+}
+
+.analog-hand {
+  position: absolute;
+  left: 50%;
+  bottom: 50%;
+  transform-origin: center bottom;
+  border-radius: 999px;
+}
+
+.analog-hour {
+  width: 8px;
+  height: 28%;
+  margin-left: -4px;
+  background: var(--ink);
+}
+
+.analog-minute {
+  width: 6px;
+  height: 38%;
+  margin-left: -3px;
+  background: #c7dcf2;
+}
+
+.analog-second {
+  width: 2px;
+  height: 44%;
+  margin-left: -1px;
+  background: var(--accent);
+}
+
+.analog-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  margin-left: -8px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+@media (max-width: 800px) {
+  .bedside-shell {
+    padding: 16px;
+  }
+
+  .bedside-modules {
+    min-height: calc(100vh - 32px);
+    justify-content: center;
+  }
+
+  .clock-card.size-large,
+  .clock-card.size-medium,
+  .clock-card.size-small {
+    min-width: min(100%, 420px);
+  }
+
+  .clock-card.size-large .clock-digital-time {
+    font-size: 5rem;
+  }
+
+  .clock-card.size-large .analog-clock-face {
+    width: 320px;
+    height: 320px;
+  }
+}

@@ -32,6 +32,18 @@
 - validate clock type, hour mode, date format, display size, and screen position on the server
 - add a clock settings form and preview summary to the enabled clock module page
 
+## Task 7 delivery
+- add a bedside runtime page that renders enabled modules from the live module state
+- install a systemd service so the web runtime starts automatically on boot
+- install a desktop autostart entry so the Pi opens the bedside page in kiosk mode after reboot
+- move live setup/module/update JSON data into `/var/lib/clock` so it survives application updates
+
+## Release 0.2.0 delivery
+- add the clock module settings required for bedside rendering
+- start the web runtime automatically on boot
+- render enabled modules on the bedside display
+- update latest install and update entrypoints to target `0.2.0`
+
 ## Task 1 delivery
 - define a shared install and update script framework
 - provide latest and release-specific entrypoints

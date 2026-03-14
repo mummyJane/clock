@@ -15,3 +15,6 @@
 - The built-in `clock` module now has registration code that exercises config, draw, alarm, and screen-press hooks through that shared API.
 - Task 6 stores clock settings in the module registry and exposes them in the setup web interface when the clock module is enabled.
 - The current clock settings are display type, 12/24-hour mode, date format, display size, and screen position.
+- Task 7 adds a bedside page at `/bedside.html` that renders the enabled modules from live state, with the clock module respecting its Task 6 settings.
+- Deployed installs now point the web server at `/var/lib/clock/*.json` for live state so setup and module choices survive application updates.
+- The current boot strategy is `clock-web.service` for the local server plus a desktop autostart entry that launches Chromium in kiosk mode on the bedside page.

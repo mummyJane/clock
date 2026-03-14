@@ -11,6 +11,8 @@ CLOCK_INSTALL_ROOT="${CLOCK_INSTALL_ROOT:-/opt/clock}"
 CLOCK_CONFIG_ROOT="${CLOCK_CONFIG_ROOT:-/etc/clock}"
 CLOCK_STATE_ROOT="${CLOCK_STATE_ROOT:-/var/lib/clock}"
 CLOCK_RELEASE_FILE="${CLOCK_RELEASE_FILE:-${CLOCK_STATE_ROOT}/release.env}"
+CLOCK_SYSTEMD_ROOT="${CLOCK_SYSTEMD_ROOT:-/etc/systemd/system}"
+CLOCK_AUTOSTART_ROOT="${CLOCK_AUTOSTART_ROOT:-/etc/xdg/autostart}"
 
 log() {
     printf '[clock] %s\n' "$*"
@@ -68,20 +70,46 @@ sync_project_files() {
 }
 
 write_default_config() {
-    if [[ ! -f "${CLOCK_CONFIG_ROOT}/clock.env" ]]; then
-        cat > "${CLOCK_CONFIG_ROOT}/clock.env" <<'EOF'
+    cat > "${CLOCK_CONFIG_ROOT}/clock.env" <<EOF
 CLOCK_TIMEZONE=Europe/London
 CLOCK_WEB_PORT=8080
+CLOCK_SETUP_FILE=${CLOCK_STATE_ROOT}/settings.json
+CLOCK_RELEASE_FILE=${CLOCK_STATE_ROOT}/release.json
+CLOCK_UPDATE_FILE=${CLOCK_STATE_ROOT}/update-status.json
+CLOCK_MODULES_FILE=${CLOCK_STATE_ROOT}/modules.json
 EOF
+}
+
+seed_runtime_state() {
+    if [[ ! -f "${CLOCK_STATE_ROOT}/modules.json" ]]; then
+        install -m 0644 "${CLOCK_INSTALL_ROOT}/project/web/data/modules.json" "${CLOCK_STATE_ROOT}/modules.json"
     fi
+
+    if [[ ! -f "${CLOCK_STATE_ROOT}/update-status.json" ]]; then
+        install -m 0644 "${CLOCK_INSTALL_ROOT}/project/web/data/update-status.json" "${CLOCK_STATE_ROOT}/update-status.json"
+    fi
+
+    chown -R "${CLOCK_USER}:${CLOCK_GROUP}" "${CLOCK_STATE_ROOT}"
 }
 
 write_release_metadata() {
     local release_name="$1"
+    local updated_at
+    updated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
     cat > "${CLOCK_RELEASE_FILE}" <<EOF
 CLOCK_RELEASE=${release_name}
-CLOCK_UPDATED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+CLOCK_UPDATED_AT=${updated_at}
 EOF
+
+    cat > "${CLOCK_STATE_ROOT}/release.json" <<EOF
+{
+  "release": "${release_name}",
+  "updated_at": "${updated_at}"
+}
+EOF
+
+    chown "${CLOCK_USER}:${CLOCK_GROUP}" "${CLOCK_RELEASE_FILE}" "${CLOCK_STATE_ROOT}/release.json"
 }
 
 read_current_release() {
@@ -100,7 +128,28 @@ install_base_packages() {
         rsync \
         curl \
         jq \
-        avahi-daemon
+        avahi-daemon \
+        python3 \
+        chromium-browser
+}
+
+install_runtime_assets() {
+    install -d -m 0755 "${CLOCK_SYSTEMD_ROOT}"
+    install -d -m 0755 "${CLOCK_AUTOSTART_ROOT}"
+    install -m 0644 "${CLOCK_INSTALL_ROOT}/project/deploy/systemd/clock-web.service" "${CLOCK_SYSTEMD_ROOT}/clock-web.service"
+    install -m 0644 "${CLOCK_INSTALL_ROOT}/project/deploy/autostart/clock-bedside.desktop" "${CLOCK_AUTOSTART_ROOT}/clock-bedside.desktop"
+    chmod 0755 "${CLOCK_INSTALL_ROOT}/project/deploy/bin/start-bedside.sh"
+}
+
+configure_boot_mode() {
+    if command -v raspi-config >/dev/null 2>&1; then
+        raspi-config nonint do_boot_behaviour B4 || true
+    fi
+}
+
+enable_runtime_services() {
+    systemctl daemon-reload
+    systemctl enable --now clock-web.service
 }
 
 install_release_common() {
@@ -111,6 +160,14 @@ install_release_common() {
     create_layout
     sync_project_files
     write_default_config
+    seed_runtime_state
     write_release_metadata "${release_name}"
     log "Installed shared release assets for ${release_name}"
+}
+
+install_runtime_common() {
+    install_runtime_assets
+    configure_boot_mode
+    enable_runtime_services
+    log "Installed bedside runtime service and desktop autostart assets"
 }

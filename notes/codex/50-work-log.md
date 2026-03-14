@@ -61,3 +61,15 @@
 - Validation completed: called `validate_modules()` with a clock settings payload and confirmed the validated settings were preserved.
 - Validation completed: started `ThreadingHTTPServer` in-process, saved clock settings through `POST /api/modules`, and confirmed `GET /api/system` returned the saved clock settings.
 - Tooling issue: `apply_patch` continued to fail for `project/` files with `windows sandbox: setup refresh failed with status exit code: 1`, so the Task 6 project files were written via PowerShell `Set-Content`.
+
+## 2026-03-14 Task 7
+- Re-read `AGENTS.md`, `notes/codex/10-spec.md`, `notes/codex/20-plan.md`, `notes/codex/30-tasks.md`, deployment scripts, and the current web/runtime code before editing.
+- Added bedside runtime assets in `project/web/static/bedside.html`, `project/web/static/bedside.css`, and `project/web/static/bedside.js` so enabled modules can be rendered on the device display.
+- Updated `project/deploy/lib/common.sh` to seed persistent runtime JSON state in `/var/lib/clock`, write the service environment file, install runtime assets, enable the web service, and configure boot-to-desktop behavior.
+- Added deployment assets `project/deploy/systemd/clock-web.service`, `project/deploy/autostart/clock-bedside.desktop`, and `project/deploy/bin/start-bedside.sh`.
+- Added release-specific installers and updaters for `0.2.0` and moved `install-latest.sh`, `update-latest.sh`, and `update-test.sh` to target `0.2.0`.
+- Updated `project/docs/full-install.md`, `project/web/README.md`, and added `notes/codex/80-release-0.2.0.md` for the new runtime and release behavior.
+- Validation completed: `python -m py_compile project/web/server.py project/modules/clock/module.py`.
+- Validation completed: started `ThreadingHTTPServer` in-process, saved an enabled clock module through `POST /api/modules`, confirmed `GET /bedside.html` returned the bedside page, and confirmed `GET /api/system` exposed the saved enabled-module state and screen position.
+- Validation attempt: `bash -n project/deploy/lib/common.sh install/install-0.2.0.sh update/update-0.2.0.sh project/deploy/bin/start-bedside.sh` failed in this Windows workspace with `Bash/Service/CreateInstance/E_ACCESSDENIED`.
+- Tooling issue: `apply_patch` continued to fail for `project/` files with `windows sandbox: setup refresh failed with status exit code: 1`, so the Task 7 project files were written via PowerShell `Set-Content`.
