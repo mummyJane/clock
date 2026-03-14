@@ -49,3 +49,15 @@
 - Validation completed: `python -m py_compile project/modules/__init__.py project/modules/api.py project/modules/clock/__init__.py project/modules/clock/module.py`.
 - Validation completed: registered the built-in clock module through `ModuleHost`, dispatched a screen press event, and confirmed exported state included the expected config item, draw item, alarm, and handler registration.
 - Tooling issue: `apply_patch` again failed for `project/` files with `windows sandbox: setup refresh failed with status exit code: 1`, so the Task 5 project files were written via PowerShell `Set-Content`.
+
+## 2026-03-14 Task 6
+- Re-read `AGENTS.md`, `notes/codex/10-spec.md`, `notes/codex/20-plan.md`, `notes/codex/30-tasks.md`, and the existing `project/web` module flow before editing.
+- Extended `project/web/server.py` to persist and validate clock module settings for display type, hour mode, date format, display size, and screen position.
+- Updated `project/web/data/modules.json` with default clock settings while keeping the clock module disabled by default.
+- Reworked the enabled clock module page in `project/web/static/index.html`, `project/web/static/app.js`, and `project/web/static/styles.css` to add a settings form and preview summary.
+- Updated `project/modules/clock/module.py` so the built-in clock module registration advertises the Task 6 config items through the shared module API.
+- Updated `project/web/README.md` to document that `/api/modules` now carries module settings as well as enabled state.
+- Validation completed: `python -m py_compile project/web/server.py project/modules/clock/module.py`.
+- Validation completed: called `validate_modules()` with a clock settings payload and confirmed the validated settings were preserved.
+- Validation completed: started `ThreadingHTTPServer` in-process, saved clock settings through `POST /api/modules`, and confirmed `GET /api/system` returned the saved clock settings.
+- Tooling issue: `apply_patch` continued to fail for `project/` files with `windows sandbox: setup refresh failed with status exit code: 1`, so the Task 6 project files were written via PowerShell `Set-Content`.

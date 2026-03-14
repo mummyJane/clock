@@ -108,13 +108,88 @@
         </section>
 
         <section class="page" data-page="module-clock">
-          <article class="panel panel-wide">
-            <div class="panel-header">
-              <h2>Clock module</h2>
-            </div>
-            <p class="status-copy">The clock module is enabled and ready for module-specific settings.</p>
-            <p class="support-copy">Task 6 will add clock display options here. Until then, use the Modules page to enable or disable this module.</p>
-          </article>
+          <div class="grid module-settings-grid">
+            <article class="panel panel-form">
+              <div class="panel-header">
+                <h2>Clock module</h2>
+              </div>
+              <form id="clockSettingsForm">
+                <label>
+                  <span>Clock type</span>
+                  <select id="clockDisplayType" name="display_type">
+                    <option value="analog">Analog</option>
+                    <option value="digital">Digital</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Hour mode</span>
+                  <select id="clockHourMode" name="hour_mode">
+                    <option value="12">12-hour</option>
+                    <option value="24">24-hour</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Date format</span>
+                  <select id="clockDateFormat" name="date_format">
+                    <option value="dd/mm/yyyy">DD/MM/YYYY</option>
+                    <option value="mm/dd/yyyy">MM/DD/YYYY</option>
+                    <option value="yyyy-mm-dd">YYYY-MM-DD</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Display size</span>
+                  <select id="clockDisplaySize" name="display_size">
+                    <option value="small">Small</option>
+                    <option value="medium">Medium</option>
+                    <option value="large">Large</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Screen position</span>
+                  <select id="clockScreenPosition" name="screen_position">
+                    <option value="top-left">Top left</option>
+                    <option value="top-center">Top center</option>
+                    <option value="top-right">Top right</option>
+                    <option value="center-left">Center left</option>
+                    <option value="center">Center</option>
+                    <option value="center-right">Center right</option>
+                    <option value="bottom-left">Bottom left</option>
+                    <option value="bottom-center">Bottom center</option>
+                    <option value="bottom-right">Bottom right</option>
+                  </select>
+                </label>
+                <div class="form-actions">
+                  <button class="primary-button" type="submit">Save clock settings</button>
+                  <p id="clockFormStatus" class="form-status" role="status"></p>
+                </div>
+              </form>
+            </article>
+
+            <article class="panel panel-emphasis clock-preview-panel">
+              <div class="panel-header">
+                <h2>Preview summary</h2>
+              </div>
+              <p id="clockPreviewTitle" class="status-copy">Digital clock preview</p>
+              <dl class="metric-list clock-metric-list">
+                <div>
+                  <dt>Time mode</dt>
+                  <dd id="clockPreviewHourMode">24-hour</dd>
+                </div>
+                <div>
+                  <dt>Date format</dt>
+                  <dd id="clockPreviewDateFormat">DD/MM/YYYY</dd>
+                </div>
+                <div>
+                  <dt>Size</dt>
+                  <dd id="clockPreviewSize">Large</dd>
+                </div>
+                <div>
+                  <dt>Position</dt>
+                  <dd id="clockPreviewPosition">Center</dd>
+                </div>
+              </dl>
+            </article>
+          </div>
         </section>
       </div>
     </section>

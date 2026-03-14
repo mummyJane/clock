@@ -41,6 +41,7 @@
     - date format
     - display size
     - location on screen
+- status: done 2026-03-14
 
 ## Task 7
 - on reboot automaticly go into bedside mode

@@ -13,3 +13,5 @@
 - Store module source and assets under `project/modules/<module-id>/` so the UI registry, runtime code, and deployment layout can share the same module identifiers.
 - Define the first module API in Python under `project/modules/api.py` because the current runtime and setup code already use Python, and the API needs to stay dependency-free for Raspberry Pi deployment.
 - Keep the Task 5 API as an in-process registration scaffold first, with stored alarms, config items, draw items, and input handlers, then bind those capabilities to the real bedside renderer in later tasks.
+- Keep clock settings inside `modules.json` rather than splitting them into a separate file, because they are part of module configuration and should travel with module enabled state.
+- Validate Task 6 clock settings on the server against explicit option sets so the web UI remains simple but bad values still cannot be persisted.

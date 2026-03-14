@@ -3,7 +3,14 @@
     "clock": {
       "title": "Clock",
       "description": "Primary bedside clock surface.",
-      "enabled": false
+      "enabled": false,
+      "settings": {
+        "display_type": "digital",
+        "hour_mode": "24",
+        "date_format": "dd/mm/yyyy",
+        "display_size": "large",
+        "screen_position": "center"
+      }
     }
   }
 }

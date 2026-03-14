@@ -9,6 +9,8 @@ const formEl = document.getElementById("settingsForm");
 const pageNavEl = document.getElementById("pageNav");
 const modulesListEl = document.getElementById("modulesList");
 const moduleStatusEl = document.getElementById("moduleStatus");
+const clockSettingsFormEl = document.getElementById("clockSettingsForm");
+const clockFormStatusEl = document.getElementById("clockFormStatus");
 
 const basePages = [
   { id: "overview", label: "Overview" },
@@ -32,6 +34,41 @@ function setSettingsForm(settings) {
   document.getElementById("webPort").value = settings.web_port || 8080;
   document.getElementById("updateChannel").value = settings.update_channel || "stable";
   document.getElementById("sshEnabled").checked = Boolean(settings.ssh_enabled);
+}
+
+function setClockSettingsForm(settings) {
+  document.getElementById("clockDisplayType").value = settings.display_type || "digital";
+  document.getElementById("clockHourMode").value = settings.hour_mode || "24";
+  document.getElementById("clockDateFormat").value = settings.date_format || "dd/mm/yyyy";
+  document.getElementById("clockDisplaySize").value = settings.display_size || "large";
+  document.getElementById("clockScreenPosition").value = settings.screen_position || "center";
+}
+
+function titleCase(value) {
+  return String(value || "")
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function renderClockPreview(settings) {
+  document.getElementById("clockPreviewTitle").textContent = `${titleCase(settings.display_type)} clock preview`;
+  document.getElementById("clockPreviewHourMode").textContent = settings.hour_mode === "12" ? "12-hour" : "24-hour";
+  document.getElementById("clockPreviewDateFormat").textContent = settings.date_format.toUpperCase();
+  document.getElementById("clockPreviewSize").textContent = titleCase(settings.display_size);
+  document.getElementById("clockPreviewPosition").textContent = titleCase(settings.screen_position);
+}
+
+function renderClockSettings(module) {
+  const settings = module?.settings || {
+    display_type: "digital",
+    hour_mode: "24",
+    date_format: "dd/mm/yyyy",
+    display_size: "large",
+    screen_position: "center",
+  };
+  setClockSettingsForm(settings);
+  renderClockPreview(settings);
 }
 
 function renderSystemState(systemState) {
@@ -120,6 +157,7 @@ function renderModules(modulesPayload) {
       </article>
     `)
     .join("");
+  renderClockSettings(modulesPayload.modules?.clock);
   ensureVisiblePage();
   renderPageNav();
   renderPages();
@@ -158,6 +196,28 @@ async function handleModuleToggle(event) {
   } catch (error) {
     event.target.checked = !event.target.checked;
     moduleStatusEl.textContent = error.message;
+    await loadModules();
+  }
+}
+
+async function saveClockSettings(event) {
+  event.preventDefault();
+  const nextModules = JSON.parse(JSON.stringify(moduleState));
+  nextModules.modules.clock.settings = {
+    display_type: document.getElementById("clockDisplayType").value,
+    hour_mode: document.getElementById("clockHourMode").value,
+    date_format: document.getElementById("clockDateFormat").value,
+    display_size: document.getElementById("clockDisplaySize").value,
+    screen_position: document.getElementById("clockScreenPosition").value,
+  };
+  clockFormStatusEl.textContent = "Saving clock settings...";
+
+  try {
+    moduleState = nextModules;
+    await saveModules();
+    clockFormStatusEl.textContent = "Clock settings saved.";
+  } catch (error) {
+    clockFormStatusEl.textContent = error.message;
     await loadModules();
   }
 }
@@ -204,6 +264,20 @@ document.getElementById("refreshUpdate").addEventListener("click", () => {
 modulesListEl.addEventListener("change", (event) => {
   handleModuleToggle(event).catch((error) => {
     moduleStatusEl.textContent = error.message;
+  });
+});
+
+clockSettingsFormEl.addEventListener("submit", (event) => {
+  saveClockSettings(event);
+});
+
+clockSettingsFormEl.addEventListener("change", () => {
+  renderClockPreview({
+    display_type: document.getElementById("clockDisplayType").value,
+    hour_mode: document.getElementById("clockHourMode").value,
+    date_format: document.getElementById("clockDateFormat").value,
+    display_size: document.getElementById("clockDisplaySize").value,
+    screen_position: document.getElementById("clockScreenPosition").value,
   });
 });
 

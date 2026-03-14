@@ -27,6 +27,11 @@
 - support module access to time, date, alarms, config items, draw items, and screen press handlers
 - add a built-in clock module registration example against that API
 
+## Task 6 delivery
+- persist clock module settings inside the module registry data
+- validate clock type, hour mode, date format, display size, and screen position on the server
+- add a clock settings form and preview summary to the enabled clock module page
+
 ## Task 1 delivery
 - define a shared install and update script framework
 - provide latest and release-specific entrypoints

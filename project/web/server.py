@@ -21,6 +21,22 @@ RELEASE_PATH = Path(os.environ.get("CLOCK_RELEASE_FILE", DEFAULT_DATA_ROOT / "re
 UPDATE_STATUS_PATH = Path(os.environ.get("CLOCK_UPDATE_FILE", DEFAULT_DATA_ROOT / "update-status.json"))
 MODULES_PATH = Path(os.environ.get("CLOCK_MODULES_FILE", DEFAULT_DATA_ROOT / "modules.json"))
 
+CLOCK_DISPLAY_TYPES = {"analog", "digital"}
+CLOCK_HOUR_MODES = {"12", "24"}
+CLOCK_DATE_FORMATS = {"dd/mm/yyyy", "mm/dd/yyyy", "yyyy-mm-dd"}
+CLOCK_DISPLAY_SIZES = {"small", "medium", "large"}
+CLOCK_SCREEN_POSITIONS = {
+    "top-left",
+    "top-center",
+    "top-right",
+    "center-left",
+    "center",
+    "center-right",
+    "bottom-left",
+    "bottom-center",
+    "bottom-right",
+}
+
 DEFAULT_SETTINGS: dict[str, Any] = {
     "device_name": "clock",
     "timezone": "Europe/London",
@@ -46,6 +62,13 @@ DEFAULT_MODULES: dict[str, Any] = {
             "title": "Clock",
             "description": "Primary bedside clock surface.",
             "enabled": False,
+            "settings": {
+                "display_type": "digital",
+                "hour_mode": "24",
+                "date_format": "dd/mm/yyyy",
+                "display_size": "large",
+                "screen_position": "center",
+            },
         }
     }
 }
@@ -109,6 +132,36 @@ def validate_settings(payload: Any) -> dict[str, Any]:
     return cleaned
 
 
+def validate_clock_settings(payload: Any) -> dict[str, str]:
+    if not isinstance(payload, dict):
+        raise ValueError("Clock settings must be a JSON object.")
+
+    display_type = str(payload.get("display_type", DEFAULT_MODULES["modules"]["clock"]["settings"]["display_type"])).strip()
+    hour_mode = str(payload.get("hour_mode", DEFAULT_MODULES["modules"]["clock"]["settings"]["hour_mode"])).strip()
+    date_format = str(payload.get("date_format", DEFAULT_MODULES["modules"]["clock"]["settings"]["date_format"])).strip()
+    display_size = str(payload.get("display_size", DEFAULT_MODULES["modules"]["clock"]["settings"]["display_size"])).strip()
+    screen_position = str(payload.get("screen_position", DEFAULT_MODULES["modules"]["clock"]["settings"]["screen_position"])).strip()
+
+    if display_type not in CLOCK_DISPLAY_TYPES:
+        raise ValueError("Clock display type must be analog or digital.")
+    if hour_mode not in CLOCK_HOUR_MODES:
+        raise ValueError("Clock hour mode must be 12 or 24.")
+    if date_format not in CLOCK_DATE_FORMATS:
+        raise ValueError("Clock date format is invalid.")
+    if display_size not in CLOCK_DISPLAY_SIZES:
+        raise ValueError("Clock display size must be small, medium, or large.")
+    if screen_position not in CLOCK_SCREEN_POSITIONS:
+        raise ValueError("Clock screen position is invalid.")
+
+    return {
+        "display_type": display_type,
+        "hour_mode": hour_mode,
+        "date_format": date_format,
+        "display_size": display_size,
+        "screen_position": screen_position,
+    }
+
+
 def validate_modules(payload: Any) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError("Modules payload must be a JSON object.")
@@ -122,11 +175,15 @@ def validate_modules(payload: Any) -> dict[str, Any]:
         source_module = raw_modules.get(module_id, {})
         if not isinstance(source_module, dict):
             raise ValueError(f"Module {module_id} must be a JSON object.")
-        cleaned_modules[module_id] = {
+
+        cleaned_module = {
             "title": str(source_module.get("title", default_module["title"])).strip() or default_module["title"],
             "description": str(source_module.get("description", default_module["description"])).strip() or default_module["description"],
             "enabled": bool(source_module.get("enabled", default_module["enabled"])),
         }
+        if module_id == "clock":
+            cleaned_module["settings"] = validate_clock_settings(source_module.get("settings", default_module["settings"]))
+        cleaned_modules[module_id] = cleaned_module
 
     return {"modules": cleaned_modules}
 

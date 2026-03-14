@@ -14,8 +14,8 @@ The server listens on port `8080` by default and serves:
 - `GET /api/system` for hostname, IP address, release, update status, and modules
 - `GET /api/settings` for saved setup settings
 - `POST /api/settings` to save setup settings
-- `GET /api/modules` for installed module metadata and enabled state
-- `POST /api/modules` to save module enabled state
+- `GET /api/modules` for installed module metadata, enabled state, and module settings
+- `POST /api/modules` to save module enabled state and module settings
 - `GET /api/update-status` for the current update metadata
 
 ## Data files
@@ -26,6 +26,14 @@ By default the server reads and writes JSON files in `project/web/data/`.
 - `release.json`
 - `modules.json`
 - `update-status.json`
+
+The seeded `clock` module settings are:
+
+- `display_type`
+- `hour_mode`
+- `date_format`
+- `display_size`
+- `screen_position`
 
 Use these environment variables to point at deployment paths:
 

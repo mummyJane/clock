@@ -216,6 +216,19 @@ body {
   min-width: 132px;
 }
 
+.module-settings-grid .panel-form,
+.module-settings-grid .clock-preview-panel {
+  grid-column: span 6;
+}
+
+.clock-preview-panel {
+  min-height: 100%;
+}
+
+.clock-metric-list div {
+  background: rgba(255, 255, 255, 0.14);
+}
+
 form {
   display: grid;
   gap: 16px;
@@ -286,7 +299,9 @@ select {
 @media (max-width: 900px) {
   .panel,
   .panel-emphasis,
-  .panel-form {
+  .panel-form,
+  .module-settings-grid .panel-form,
+  .module-settings-grid .clock-preview-panel {
     grid-column: 1 / -1;
   }
 }

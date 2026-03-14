@@ -13,3 +13,5 @@
 - Task 4.1 adds `project/modules/` as the filesystem home for modules, with `project/modules/clock/` reserved for the built-in clock module.
 - Task 5 introduces a shared Python module API in `project/modules/api.py` so later bedside runtime work can expose a consistent contract to all modules.
 - The built-in `clock` module now has registration code that exercises config, draw, alarm, and screen-press hooks through that shared API.
+- Task 6 stores clock settings in the module registry and exposes them in the setup web interface when the clock module is enabled.
+- The current clock settings are display type, 12/24-hour mode, date format, display size, and screen position.
