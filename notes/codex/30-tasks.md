@@ -25,6 +25,16 @@
 - status: done 2026-03-14
 
 ## Task 5
+- Define an api for the modules to use, things like :-
+    - read time
+    - read date
+    - Set alarm
+    - add config item
+    - draw item
+    - set screen press event
+- status: done 2026-03-14
+    
+## Task 6
 - clock module setting
     - type anaglog or digaly
     - 12 or 24 hours
@@ -32,6 +42,6 @@
     - display size
     - location on screen
 
-## Task 6
+## Task 7
 - on reboot automaticly go into bedside mode
 - display enable modules

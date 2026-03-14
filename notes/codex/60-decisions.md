@@ -11,3 +11,5 @@
 - Seed the `clock` module in the registry but keep it disabled by default to match Task 4 and to make new module pages opt-in.
 - Implement module pages as hash-routed sections in the existing static web app so Task 4 can add module navigation without introducing frontend dependencies.
 - Store module source and assets under `project/modules/<module-id>/` so the UI registry, runtime code, and deployment layout can share the same module identifiers.
+- Define the first module API in Python under `project/modules/api.py` because the current runtime and setup code already use Python, and the API needs to stay dependency-free for Raspberry Pi deployment.
+- Keep the Task 5 API as an in-process registration scaffold first, with stored alarms, config items, draw items, and input handlers, then bind those capabilities to the real bedside renderer in later tasks.

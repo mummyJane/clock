@@ -22,6 +22,11 @@
 - show a module page in the web interface only after that module is enabled
 - create a `project/modules` folder layout with a built-in `clock` module directory
 
+## Task 5 delivery
+- define a shared Python module host API under `project/modules/api.py`
+- support module access to time, date, alarms, config items, draw items, and screen press handlers
+- add a built-in clock module registration example against that API
+
 ## Task 1 delivery
 - define a shared install and update script framework
 - provide latest and release-specific entrypoints

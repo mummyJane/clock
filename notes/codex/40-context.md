@@ -9,5 +9,7 @@
 - Update handling for `0.1.0` is informational only; applying updates automatically remains a later task.
 - Task 4 adds module management to the existing setup UI instead of creating a separate admin surface.
 - Module state is persisted in `project/web/data/modules.json`, with the `clock` module seeded but disabled by default.
-- Enabled modules now add their own navigation entries in the web UI; the first module page is a Task 4 placeholder for the clock module until Task 5 adds settings.
+- Enabled modules now add their own navigation entries in the web UI; the first module page is a Task 4 placeholder for the clock module until Task 6 adds settings.
 - Task 4.1 adds `project/modules/` as the filesystem home for modules, with `project/modules/clock/` reserved for the built-in clock module.
+- Task 5 introduces a shared Python module API in `project/modules/api.py` so later bedside runtime work can expose a consistent contract to all modules.
+- The built-in `clock` module now has registration code that exercises config, draw, alarm, and screen-press hooks through that shared API.

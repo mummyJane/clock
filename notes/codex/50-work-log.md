@@ -40,3 +40,12 @@
 - Added `project/modules/README.md` to define the module folder layout.
 - Added `project/modules/clock/README.md` as the filesystem home for the built-in clock module.
 - Validation completed: inspected the new module paths with `Get-ChildItem -Recurse project/modules`.
+
+## 2026-03-14 Task 5
+- Re-read `AGENTS.md`, `notes/codex/10-spec.md`, `notes/codex/20-plan.md`, `notes/codex/30-tasks.md`, `notes/codex/40-context.md`, and the current `project/modules` layout before editing.
+- Added `project/modules/api.py` with a standard-library module host API covering time/date reads, alarm registration, config items, draw items, and screen press handlers.
+- Added `project/modules/__init__.py`, `project/modules/clock/__init__.py`, and `project/modules/clock/module.py` so the built-in clock module can register against the shared API.
+- Updated `project/modules/README.md` and `project/modules/clock/README.md` to document the Task 5 API scaffold.
+- Validation completed: `python -m py_compile project/modules/__init__.py project/modules/api.py project/modules/clock/__init__.py project/modules/clock/module.py`.
+- Validation completed: registered the built-in clock module through `ModuleHost`, dispatched a screen press event, and confirmed exported state included the expected config item, draw item, alarm, and handler registration.
+- Tooling issue: `apply_patch` again failed for `project/` files with `windows sandbox: setup refresh failed with status exit code: 1`, so the Task 5 project files were written via PowerShell `Set-Content`.
