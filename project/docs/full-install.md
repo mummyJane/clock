@@ -33,7 +33,8 @@ sudo reboot
 
 ## What the install scripts do
 
-- install required packages: `git`, `rsync`, `curl`, `jq`, `avahi-daemon`, `python3`, and `chromium-browser`
+- install required packages: `git`, `rsync`, `curl`, `jq`, `avahi-daemon`, `python3`, and a Chromium package
+- prefer `chromium` on newer Raspberry Pi OS and fall back to `chromium-browser` on older images
 - create the dedicated `clock` system user and group
 - create `/opt/clock`, `/etc/clock`, and `/var/lib/clock`
 - sync the repository `project` directory into `/opt/clock/project`

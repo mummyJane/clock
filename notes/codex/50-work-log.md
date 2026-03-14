@@ -73,3 +73,4 @@
 - Validation completed: started `ThreadingHTTPServer` in-process, saved an enabled clock module through `POST /api/modules`, confirmed `GET /bedside.html` returned the bedside page, and confirmed `GET /api/system` exposed the saved enabled-module state and screen position.
 - Validation attempt: `bash -n project/deploy/lib/common.sh install/install-0.2.0.sh update/update-0.2.0.sh project/deploy/bin/start-bedside.sh` failed in this Windows workspace with `Bash/Service/CreateInstance/E_ACCESSDENIED`.
 - Tooling issue: `apply_patch` continued to fail for `project/` files with `windows sandbox: setup refresh failed with status exit code: 1`, so the Task 7 project files were written via PowerShell `Set-Content`.
+- Runtime fix: Raspberry Pi OS Trixie reported `chromium-browser` as unavailable, so `project/deploy/lib/common.sh` was updated to install `chromium` when present and only fall back to `chromium-browser` on older images.

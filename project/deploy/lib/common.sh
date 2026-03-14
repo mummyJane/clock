@@ -39,6 +39,21 @@ apt_install() {
     apt-get install -y "$@"
 }
 
+apt_install_chromium() {
+    if apt-cache show chromium >/dev/null 2>&1; then
+        apt_install chromium
+        return
+    fi
+
+    if apt-cache show chromium-browser >/dev/null 2>&1; then
+        apt_install chromium-browser
+        return
+    fi
+
+    echo "Neither chromium nor chromium-browser is available from configured apt sources." >&2
+    exit 1
+}
+
 ensure_clock_user() {
     if ! getent group "${CLOCK_GROUP}" >/dev/null; then
         groupadd --system "${CLOCK_GROUP}"
@@ -129,8 +144,8 @@ install_base_packages() {
         curl \
         jq \
         avahi-daemon \
-        python3 \
-        chromium-browser
+        python3
+    apt_install_chromium
 }
 
 install_runtime_assets() {
