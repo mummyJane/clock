@@ -24,3 +24,14 @@
 - Added release note `notes/codex/80-release-0.1.0.md` describing image choice, install flow, SSH setup, and current update behavior.
 - Updated install script output to point operators to the setup web interface after installation.
 - Recorded current release limitation: the setup UI still reads seeded release/update metadata and should later be wired directly to installed state files.
+
+## 2026-03-14 Task 4
+- Re-read `AGENTS.md`, `notes/codex/10-spec.md`, `notes/codex/20-plan.md`, `notes/codex/30-tasks.md`, and the existing `project/web` implementation before editing.
+- Added module persistence and APIs in `project/web/server.py`, backed by seeded data in `project/web/data/modules.json`.
+- Restructured the setup UI into a page shell with `Overview` and `Modules` pages, then added a `Clock` module page that only appears when the module is enabled.
+- Updated `project/web/README.md` with the new module endpoints and `CLOCK_MODULES_FILE` environment variable.
+- Validation completed: `python -m py_compile project/web/server.py`.
+- Validation completed: saved and reloaded module state through `validate_modules`, `save_json`, and `load_json` using a workspace-local scratch path.
+- Validation completed: started `ThreadingHTTPServer` in-process, confirmed `GET /api/modules` returned the default disabled clock module, confirmed `POST /api/modules` enabled it, and confirmed `GET /api/system` reflected the enabled module state.
+- Tooling issue: `apply_patch` failed repeatedly for files under `project/web` with `windows sandbox: setup refresh failed with status exit code: 1`, so the Task 4 code files were written via PowerShell `Set-Content` instead.
+- Validation issue: initial smoke scripts used `%LOCALAPPDATA%\\Temp` and failed cleanup with `PermissionError`; reran the checks inside `D:\\clock\\.codex-temp-tests` to keep validation inside the writable workspace.

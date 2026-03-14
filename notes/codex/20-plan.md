@@ -16,6 +16,11 @@
     - clock format
     - clock size and location on the screen
 
+## Task 4 delivery
+- add a persisted module registry to the setup server
+- add a Modules page where all modules start disabled by default
+- show a module page in the web interface only after that module is enabled
+
 ## Task 1 delivery
 - define a shared install and update script framework
 - provide latest and release-specific entrypoints

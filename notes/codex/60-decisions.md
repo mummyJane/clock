@@ -7,3 +7,6 @@
 - Store setup and update metadata as JSON files first, then layer system services and richer persistence on top in later tasks.
 - Treat the existing setup page as sufficient to satisfy the `0.1.0` requirement for on-screen IP/status display, rather than adding a dedicated display runtime before Task 6.
 - Keep `0.1.0` update behavior informational only until the server/runtime is wired to apply updates safely on the device.
+- Keep module enablement in a separate `modules.json` file instead of folding it into setup settings, so module lifecycle can evolve independently from device-wide preferences.
+- Seed the `clock` module in the registry but keep it disabled by default to match Task 4 and to make new module pages opt-in.
+- Implement module pages as hash-routed sections in the existing static web app so Task 4 can add module navigation without introducing frontend dependencies.

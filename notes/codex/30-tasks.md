@@ -16,6 +16,7 @@
 - make clock module
 - in that web interface have a page with all module by default disable
 - when module is enabled add page for the module
+- status: done 2026-03-14
 
 ## Task 5
 - clock module setting

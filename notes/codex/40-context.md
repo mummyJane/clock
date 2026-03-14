@@ -7,3 +7,6 @@
 - The setup UI shows hostname, IPv4 addresses, release/update status, and allows editing core setup preferences.
 - Release `0.1.0` uses the existing setup page as the first local touchscreen status/setup surface instead of introducing a separate kiosk runtime.
 - Update handling for `0.1.0` is informational only; applying updates automatically remains a later task.
+- Task 4 adds module management to the existing setup UI instead of creating a separate admin surface.
+- Module state is persisted in `project/web/data/modules.json`, with the `clock` module seeded but disabled by default.
+- Enabled modules now add their own navigation entries in the web UI; the first module page is a Task 4 placeholder for the clock module until Task 5 adds settings.

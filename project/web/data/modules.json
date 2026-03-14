@@ -1,0 +1,9 @@
+{
+  "modules": {
+    "clock": {
+      "title": "Clock",
+      "description": "Primary bedside clock surface.",
+      "enabled": true
+    }
+  }
+}

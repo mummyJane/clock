@@ -19,6 +19,7 @@ DEFAULT_DATA_ROOT = APP_ROOT / "data"
 SETTINGS_PATH = Path(os.environ.get("CLOCK_SETUP_FILE", DEFAULT_DATA_ROOT / "settings.json"))
 RELEASE_PATH = Path(os.environ.get("CLOCK_RELEASE_FILE", DEFAULT_DATA_ROOT / "release.json"))
 UPDATE_STATUS_PATH = Path(os.environ.get("CLOCK_UPDATE_FILE", DEFAULT_DATA_ROOT / "update-status.json"))
+MODULES_PATH = Path(os.environ.get("CLOCK_MODULES_FILE", DEFAULT_DATA_ROOT / "modules.json"))
 
 DEFAULT_SETTINGS: dict[str, Any] = {
     "device_name": "clock",
@@ -37,6 +38,16 @@ DEFAULT_UPDATE_STATUS: dict[str, Any] = {
     "status": "unknown",
     "latest_release": "unknown",
     "message": "No update metadata is available yet.",
+}
+
+DEFAULT_MODULES: dict[str, Any] = {
+    "modules": {
+        "clock": {
+            "title": "Clock",
+            "description": "Primary bedside clock surface.",
+            "enabled": False,
+        }
+    }
 }
 
 
@@ -98,6 +109,28 @@ def validate_settings(payload: Any) -> dict[str, Any]:
     return cleaned
 
 
+def validate_modules(payload: Any) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise ValueError("Modules payload must be a JSON object.")
+
+    raw_modules = payload.get("modules", payload)
+    if not isinstance(raw_modules, dict):
+        raise ValueError("Modules payload must contain a modules object.")
+
+    cleaned_modules: dict[str, Any] = {}
+    for module_id, default_module in DEFAULT_MODULES["modules"].items():
+        source_module = raw_modules.get(module_id, {})
+        if not isinstance(source_module, dict):
+            raise ValueError(f"Module {module_id} must be a JSON object.")
+        cleaned_modules[module_id] = {
+            "title": str(source_module.get("title", default_module["title"])).strip() or default_module["title"],
+            "description": str(source_module.get("description", default_module["description"])).strip() or default_module["description"],
+            "enabled": bool(source_module.get("enabled", default_module["enabled"])),
+        }
+
+    return {"modules": cleaned_modules}
+
+
 def get_ip_addresses() -> list[str]:
     hostnames = {
         socket.gethostname(),
@@ -120,12 +153,14 @@ def build_system_state() -> dict[str, Any]:
     release = load_json(RELEASE_PATH, DEFAULT_RELEASE)
     update_status = load_json(UPDATE_STATUS_PATH, DEFAULT_UPDATE_STATUS)
     settings = load_json(SETTINGS_PATH, DEFAULT_SETTINGS)
+    modules = load_json(MODULES_PATH, DEFAULT_MODULES)
     return {
         "hostname": socket.gethostname(),
         "ip_addresses": get_ip_addresses(),
         "release": release,
         "update_status": update_status,
         "settings": settings,
+        "modules": modules,
     }
 
 
@@ -136,6 +171,9 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/api/settings":
             self.send_json(load_json(SETTINGS_PATH, DEFAULT_SETTINGS))
+            return
+        if parsed.path == "/api/modules":
+            self.send_json(load_json(MODULES_PATH, DEFAULT_MODULES))
             return
         if parsed.path == "/api/system":
             self.send_json(build_system_state())
@@ -149,6 +187,9 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/api/settings":
             self.handle_save_settings()
+            return
+        if parsed.path == "/api/modules":
+            self.handle_save_modules()
             return
         self.send_error(HTTPStatus.NOT_FOUND, "Endpoint not found.")
 
@@ -166,6 +207,21 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
             self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
             return
         self.send_json(settings, HTTPStatus.OK)
+
+    def handle_save_modules(self) -> None:
+        content_length = int(self.headers.get("Content-Length", "0"))
+        raw_body = self.rfile.read(content_length)
+        try:
+            payload = json.loads(raw_body.decode("utf-8"))
+            modules = validate_modules(payload)
+            save_json(MODULES_PATH, modules)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            self.send_json({"error": f"Invalid JSON payload: {exc}"}, HTTPStatus.BAD_REQUEST)
+            return
+        except ValueError as exc:
+            self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        self.send_json(modules, HTTPStatus.OK)
 
     def serve_static(self, request_path: str) -> None:
         normalized = request_path.lstrip("/") or "index.html"
@@ -204,6 +260,7 @@ def main() -> None:
     ensure_parent(SETTINGS_PATH)
     ensure_parent(RELEASE_PATH)
     ensure_parent(UPDATE_STATUS_PATH)
+    ensure_parent(MODULES_PATH)
     server = ThreadingHTTPServer(("0.0.0.0", port), ClockRequestHandler)
     print(f"Clock setup server listening on http://0.0.0.0:{port}")
     server.serve_forever()

@@ -11,78 +11,112 @@
     <section class="hero">
       <p class="eyebrow">Clock Setup</p>
       <h1>Prepare the bedside clock without a keyboard.</h1>
-      <p class="lede">Use this local page to confirm network reachability, device identity, and update settings before the full clock UI is installed.</p>
+      <p class="lede">Use this local page to confirm network reachability, device identity, and manage which bedside modules are available on the device.</p>
     </section>
 
-    <section class="grid">
-      <article class="panel panel-emphasis">
+    <section class="workspace">
+      <aside class="panel nav-panel">
         <div class="panel-header">
-          <h2>Device status</h2>
-          <button id="refreshStatus" class="ghost-button" type="button">Refresh</button>
+          <h2>Pages</h2>
         </div>
-        <dl class="metric-list">
-          <div>
-            <dt>Hostname</dt>
-            <dd id="hostname">Loading...</dd>
-          </div>
-          <div>
-            <dt>IP addresses</dt>
-            <dd id="ipAddresses">Loading...</dd>
-          </div>
-          <div>
-            <dt>Installed release</dt>
-            <dd id="installedRelease">Loading...</dd>
-          </div>
-          <div>
-            <dt>Last update</dt>
-            <dd id="updatedAt">Loading...</dd>
-          </div>
-        </dl>
-      </article>
+        <nav id="pageNav" class="page-nav" aria-label="Clock setup pages"></nav>
+      </aside>
 
-      <article class="panel">
-        <div class="panel-header">
-          <h2>Update check</h2>
-          <button id="refreshUpdate" class="ghost-button" type="button">Check again</button>
-        </div>
-        <p id="updateSummary" class="status-copy">Loading update status...</p>
-        <p id="updateMessage" class="support-copy"></p>
-      </article>
+      <div class="page-stack">
+        <section class="page is-active" data-page="overview">
+          <div class="grid">
+            <article class="panel panel-emphasis">
+              <div class="panel-header">
+                <h2>Device status</h2>
+                <button id="refreshStatus" class="ghost-button" type="button">Refresh</button>
+              </div>
+              <dl class="metric-list">
+                <div>
+                  <dt>Hostname</dt>
+                  <dd id="hostname">Loading...</dd>
+                </div>
+                <div>
+                  <dt>IP addresses</dt>
+                  <dd id="ipAddresses">Loading...</dd>
+                </div>
+                <div>
+                  <dt>Installed release</dt>
+                  <dd id="installedRelease">Loading...</dd>
+                </div>
+                <div>
+                  <dt>Last update</dt>
+                  <dd id="updatedAt">Loading...</dd>
+                </div>
+              </dl>
+            </article>
 
-      <article class="panel panel-form">
-        <div class="panel-header">
-          <h2>Setup preferences</h2>
-        </div>
-        <form id="settingsForm">
-          <label>
-            <span>Device name</span>
-            <input id="deviceName" name="device_name" type="text" maxlength="64" required>
-          </label>
-          <label>
-            <span>Timezone</span>
-            <input id="timezone" name="timezone" type="text" maxlength="64" required>
-          </label>
-          <label>
-            <span>Web port</span>
-            <input id="webPort" name="web_port" type="number" min="1" max="65535" required>
-          </label>
-          <label>
-            <span>Update channel</span>
-            <select id="updateChannel" name="update_channel">
-              <option value="stable">Stable</option>
-              <option value="test">Test</option>
-            </select>
-          </label>
-          <label class="toggle">
-            <input id="sshEnabled" name="ssh_enabled" type="checkbox">
-            <span>Allow SSH access for remote admin</span>
-          </label>
-          <div class="form-actions">
-            <button class="primary-button" type="submit">Save settings</button>
-            <p id="formStatus" class="form-status" role="status"></p>
+            <article class="panel">
+              <div class="panel-header">
+                <h2>Update check</h2>
+                <button id="refreshUpdate" class="ghost-button" type="button">Check again</button>
+              </div>
+              <p id="updateSummary" class="status-copy">Loading update status...</p>
+              <p id="updateMessage" class="support-copy"></p>
+            </article>
+
+            <article class="panel panel-form">
+              <div class="panel-header">
+                <h2>Setup preferences</h2>
+              </div>
+              <form id="settingsForm">
+                <label>
+                  <span>Device name</span>
+                  <input id="deviceName" name="device_name" type="text" maxlength="64" required>
+                </label>
+                <label>
+                  <span>Timezone</span>
+                  <input id="timezone" name="timezone" type="text" maxlength="64" required>
+                </label>
+                <label>
+                  <span>Web port</span>
+                  <input id="webPort" name="web_port" type="number" min="1" max="65535" required>
+                </label>
+                <label>
+                  <span>Update channel</span>
+                  <select id="updateChannel" name="update_channel">
+                    <option value="stable">Stable</option>
+                    <option value="test">Test</option>
+                  </select>
+                </label>
+                <label class="toggle">
+                  <input id="sshEnabled" name="ssh_enabled" type="checkbox">
+                  <span>Allow SSH access for remote admin</span>
+                </label>
+                <div class="form-actions">
+                  <button class="primary-button" type="submit">Save settings</button>
+                  <p id="formStatus" class="form-status" role="status"></p>
+                </div>
+              </form>
+            </article>
           </div>
-        </form>
-      </article>
+        </section>
+
+        <section class="page" data-page="modules">
+          <article class="panel panel-wide">
+            <div class="panel-header">
+              <h2>Modules</h2>
+            </div>
+            <p class="support-copy modules-intro">Modules are disabled by default. Enable a module here to add its own page to this interface.</p>
+            <div id="modulesList" class="module-list"></div>
+            <p id="moduleStatus" class="form-status" role="status"></p>
+          </article>
+        </section>
+
+        <section class="page" data-page="module-clock">
+          <article class="panel panel-wide">
+            <div class="panel-header">
+              <h2>Clock module</h2>
+            </div>
+            <p class="status-copy">The clock module is enabled and ready for module-specific settings.</p>
+            <p class="support-copy">Task 5 will add clock display options here. Until then, use the Modules page to enable or disable this module.</p>
+          </article>
+        </section>
+      </div>
     </section>
   </main>
 
