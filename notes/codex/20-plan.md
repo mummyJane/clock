@@ -25,3 +25,8 @@
 - add a local setup web interface under `project/web`
 - serve status and setup data through a Python standard-library HTTP server
 - keep the implementation dependency-free for Raspberry Pi deployment
+
+## Release 0.1.0 delivery
+- use the setup web interface as the first-touch local status and setup surface
+- document the Raspberry Pi image choice and SSH-first install flow
+- keep update handling informational until service wiring is introduced in a later task

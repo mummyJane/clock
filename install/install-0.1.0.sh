@@ -10,6 +10,7 @@ main() {
     install_release_common "0.1.0"
     log "Release 0.1.0 baseline installed."
     log "Application services are added in later tasks."
+    log "Use the setup web interface at http://<pi-ip>:8080/ once the server is running."
 }
 
 main "$@"

@@ -17,3 +17,10 @@
 - Validation completed: `python -m py_compile project/web/server.py`.
 - Validation completed: saved and reloaded settings through `project.web.server` using a workspace-local smoke file.
 - Validation completed: started `ThreadingHTTPServer` in-process and fetched `GET /api/system`, which returned HTTP 200 with hostname, release, and update status.
+
+## 2026-03-14 Task 3
+- Re-read the `0.1.0` scope in `notes/codex/20-plan.md` and current task list in `notes/codex/30-tasks.md`.
+- Verified that rerunning `install/install-latest.sh` correctly keeps the installed release at `0.1.0`, because `latest` currently targets the `0.1.0` baseline.
+- Added release note `notes/codex/80-release-0.1.0.md` describing image choice, install flow, SSH setup, and current update behavior.
+- Updated install script output to point operators to the setup web interface after installation.
+- Recorded current release limitation: the setup UI still reads seeded release/update metadata and should later be wired directly to installed state files.
