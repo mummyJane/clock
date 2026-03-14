@@ -20,3 +20,8 @@
 - define a shared install and update script framework
 - provide latest and release-specific entrypoints
 - document the full install path for a Raspberry Pi 5
+
+## Task 2 delivery
+- add a local setup web interface under `project/web`
+- serve status and setup data through a Python standard-library HTTP server
+- keep the implementation dependency-free for Raspberry Pi deployment

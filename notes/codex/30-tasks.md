@@ -6,6 +6,7 @@
 
 ## Task 2
 - set up web interface
+- status: done 2026-03-14
 
 ## Task 3
 - do release 0.1.0
