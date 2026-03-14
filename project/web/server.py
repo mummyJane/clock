@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import mimetypes
 import os
+import shutil
 import socket
 import subprocess
 from datetime import datetime, timezone
@@ -22,6 +23,32 @@ SETTINGS_PATH = Path(os.environ.get("CLOCK_SETUP_FILE", DEFAULT_DATA_ROOT / "set
 RELEASE_PATH = Path(os.environ.get("CLOCK_RELEASE_FILE", DEFAULT_DATA_ROOT / "release.json"))
 UPDATE_STATUS_PATH = Path(os.environ.get("CLOCK_UPDATE_FILE", DEFAULT_DATA_ROOT / "update-status.json"))
 MODULES_PATH = Path(os.environ.get("CLOCK_MODULES_FILE", DEFAULT_DATA_ROOT / "modules.json"))
+POWER_ACTION_MODE = os.environ.get("CLOCK_POWER_ACTION_MODE", "live")
+THERMAL_PATH = Path("/sys/class/thermal/thermal_zone0/temp")
+POWER_SUPPLY_ROOT = Path("/sys/class/power_supply")
+MOUNT_EXCLUDE_TYPES = {
+    "autofs",
+    "binfmt_misc",
+    "bpf",
+    "cgroup",
+    "cgroup2",
+    "configfs",
+    "debugfs",
+    "devpts",
+    "devtmpfs",
+    "efivarfs",
+    "fusectl",
+    "hugetlbfs",
+    "mqueue",
+    "overlay",
+    "proc",
+    "pstore",
+    "securityfs",
+    "squashfs",
+    "sysfs",
+    "tmpfs",
+    "tracefs",
+}
 
 CLOCK_DISPLAY_TYPES = {"analog", "digital"}
 CLOCK_HOUR_MODES = {"12", "24"}
@@ -114,6 +141,120 @@ def run_git(repo_path: Path, *args: str) -> str:
 
 def current_timestamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def read_cpu_temperature() -> dict[str, Any]:
+    if not THERMAL_PATH.exists():
+        return {"celsius": None, "status": "unavailable"}
+    try:
+        raw_value = THERMAL_PATH.read_text(encoding="utf-8").strip()
+        return {"celsius": round(int(raw_value) / 1000, 1), "status": "ok"}
+    except (OSError, ValueError):
+        return {"celsius": None, "status": "error"}
+
+
+def read_battery_voltage() -> dict[str, Any]:
+    if not POWER_SUPPLY_ROOT.exists():
+        return {"volts": None, "status": "unavailable", "source": "none"}
+
+    for supply in POWER_SUPPLY_ROOT.iterdir():
+        voltage_file = supply / "voltage_now"
+        if not voltage_file.exists():
+            continue
+        try:
+            raw_value = voltage_file.read_text(encoding="utf-8").strip()
+            return {
+                "volts": round(int(raw_value) / 1_000_000, 3),
+                "status": "ok",
+                "source": supply.name,
+            }
+        except (OSError, ValueError):
+            return {"volts": None, "status": "error", "source": supply.name}
+
+    return {"volts": None, "status": "unavailable", "source": "none"}
+
+
+def get_mount_status() -> list[dict[str, Any]]:
+    mounts: list[dict[str, Any]] = []
+    seen_mounts: set[str] = set()
+    mounts_file = Path("/proc/mounts")
+    if not mounts_file.exists():
+        return mounts
+
+    for line in mounts_file.read_text(encoding="utf-8").splitlines():
+        parts = line.split()
+        if len(parts) < 3:
+            continue
+        device, mount_point, filesystem = parts[:3]
+        if filesystem in MOUNT_EXCLUDE_TYPES or mount_point in seen_mounts:
+            continue
+        mount_path = Path(mount_point)
+        if not mount_path.exists():
+            continue
+        try:
+            usage = shutil.disk_usage(mount_path)
+        except OSError:
+            continue
+        seen_mounts.add(mount_point)
+        total_gb = round(usage.total / (1024 ** 3), 2)
+        used_gb = round((usage.total - usage.free) / (1024 ** 3), 2)
+        free_gb = round(usage.free / (1024 ** 3), 2)
+        percent_used = round(((usage.total - usage.free) / usage.total) * 100, 1) if usage.total else 0.0
+        mounts.append(
+            {
+                "device": device,
+                "mount_point": mount_point,
+                "filesystem": filesystem,
+                "total_gb": total_gb,
+                "used_gb": used_gb,
+                "free_gb": free_gb,
+                "percent_used": percent_used,
+            }
+        )
+    return mounts
+
+
+def build_system_status() -> dict[str, Any]:
+    mounts = get_mount_status()
+    return {
+        "checked_at": current_timestamp(),
+        "temperature": read_cpu_temperature(),
+        "battery": read_battery_voltage(),
+        "mounts": mounts,
+        "mount_count": len(mounts),
+    }
+
+
+def request_power_action(action: str) -> dict[str, Any]:
+    if action not in {"reboot", "halt"}:
+        raise ValueError("Unsupported power action.")
+
+    if POWER_ACTION_MODE == "mock":
+        return {
+            "status": "scheduled",
+            "action": action,
+            "message": f"Mock {action} action accepted.",
+            "requested_at": current_timestamp(),
+        }
+
+    command = ["sudo", "-n", "/usr/sbin/shutdown", "-r" if action == "reboot" else "-h", "now"]
+    try:
+        subprocess.run(command, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as exc:
+        stderr = (exc.stderr or exc.stdout or str(exc)).strip()
+        return {
+            "status": "error",
+            "action": action,
+            "message": f"Power action failed: {stderr}",
+            "requested_at": current_timestamp(),
+        }
+
+    return {
+        "status": "scheduled",
+        "action": action,
+        "message": f"{action.title()} requested.",
+        "requested_at": current_timestamp(),
+    }
 
 
 def check_update_status(settings: dict[str, Any]) -> dict[str, Any]:
@@ -358,6 +499,9 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/system":
             self.send_json(build_system_state())
             return
+        if parsed.path == "/api/system-status":
+            self.send_json(build_system_status())
+            return
         if parsed.path == "/api/update-status":
             self.send_json(load_json(UPDATE_STATUS_PATH, DEFAULT_UPDATE_STATUS))
             return
@@ -373,6 +517,12 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/update-status/check":
             self.handle_check_update_status()
+            return
+        if parsed.path == "/api/actions/reboot":
+            self.handle_power_action("reboot")
+            return
+        if parsed.path == "/api/actions/halt":
+            self.handle_power_action("halt")
             return
         self.send_error(HTTPStatus.NOT_FOUND, "Endpoint not found.")
 
@@ -411,6 +561,11 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
         update_status = check_update_status(settings)
         save_json(UPDATE_STATUS_PATH, update_status)
         self.send_json(update_status, HTTPStatus.OK)
+
+    def handle_power_action(self, action: str) -> None:
+        result = request_power_action(action)
+        status = HTTPStatus.OK if result.get("status") != "error" else HTTPStatus.BAD_REQUEST
+        self.send_json(result, status)
 
     def serve_static(self, request_path: str) -> None:
         normalized = request_path.lstrip("/") or "index.html"

@@ -42,6 +42,8 @@
 - add a configurable local repository path to setup settings
 - run a real git-based update check from the web interface when `Check again` is pressed
 - persist the most recent update-check result so it is visible on reload
+- add overview system-health reporting for mounts, disk usage, CPU temperature, and battery voltage
+- add web-triggered reboot and halt actions for use when SSH is not available
 
 ## Release 0.2.0 delivery
 - add the clock module settings required for bedside rendering

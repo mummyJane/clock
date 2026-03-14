@@ -3,5 +3,5 @@
   "latest_release": "unknown",
   "message": "Set the repository path in setup preferences to enable web update checks.",
   "checked_at": "never",
-  "repo_path": ""
+  "repo_path": "https://github.com/mummyJane/clock"
 }

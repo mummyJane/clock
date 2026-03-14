@@ -2,6 +2,12 @@ const hostnameEl = document.getElementById("hostname");
 const ipAddressesEl = document.getElementById("ipAddresses");
 const installedReleaseEl = document.getElementById("installedRelease");
 const updatedAtEl = document.getElementById("updatedAt");
+const cpuTemperatureEl = document.getElementById("cpuTemperature");
+const batteryVoltageEl = document.getElementById("batteryVoltage");
+const mountCountEl = document.getElementById("mountCount");
+const diskSummaryEl = document.getElementById("diskSummary");
+const mountStatusEl = document.getElementById("mountStatus");
+const powerActionStatusEl = document.getElementById("powerActionStatus");
 const updateSummaryEl = document.getElementById("updateSummary");
 const updateMessageEl = document.getElementById("updateMessage");
 const updateDetailsEl = document.getElementById("updateDetails");
@@ -12,6 +18,8 @@ const modulesListEl = document.getElementById("modulesList");
 const moduleStatusEl = document.getElementById("moduleStatus");
 const clockSettingsFormEl = document.getElementById("clockSettingsForm");
 const clockFormStatusEl = document.getElementById("clockFormStatus");
+const rebootButtonEl = document.getElementById("rebootButton");
+const haltButtonEl = document.getElementById("haltButton");
 
 const basePages = [
   { id: "overview", label: "Overview" },
@@ -24,9 +32,18 @@ async function getJson(path, options) {
   const response = await fetch(path, options);
   const payload = await response.json();
   if (!response.ok) {
-    throw new Error(payload.error || "Request failed.");
+    throw new Error(payload.error || payload.message || "Request failed.");
   }
   return payload;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 function setSettingsForm(settings) {
@@ -73,6 +90,78 @@ function renderClockSettings(module) {
   renderClockPreview(settings);
 }
 
+function formatTemperature(payload) {
+  if (!payload || payload.status === "unavailable") {
+    return "Unavailable";
+  }
+  if (payload.status === "error" || payload.celsius == null) {
+    return "Read error";
+  }
+  return `${payload.celsius.toFixed(1)} C`;
+}
+
+function formatBattery(payload) {
+  if (!payload || payload.status === "unavailable") {
+    return "Unavailable";
+  }
+  if (payload.status === "error" || payload.volts == null) {
+    return "Read error";
+  }
+  return `${payload.volts.toFixed(3)} V${payload.source && payload.source !== "none" ? ` (${payload.source})` : ""}`;
+}
+
+function renderMounts(mounts) {
+  if (!mounts.length) {
+    mountStatusEl.innerHTML = '<p class="support-copy">No physical mounts detected.</p>';
+    return;
+  }
+
+  mountStatusEl.innerHTML = `
+    <table class="mount-table">
+      <thead>
+        <tr>
+          <th>Mount</th>
+          <th>Device</th>
+          <th>Type</th>
+          <th>Used</th>
+          <th>Free</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${mounts.map((mount) => `
+          <tr>
+            <td>${escapeHtml(mount.mount_point)}</td>
+            <td>${escapeHtml(mount.device)}</td>
+            <td>${escapeHtml(mount.filesystem)}</td>
+            <td>${mount.percent_used}% (${mount.used_gb} GB)</td>
+            <td>${mount.free_gb} GB</td>
+            <td>${mount.total_gb} GB</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderSystemHealth(systemStatus) {
+  const mounts = systemStatus.mounts || [];
+  const mostUsedMount = mounts.reduce((highest, mount) => {
+    if (!highest || mount.percent_used > highest.percent_used) {
+      return mount;
+    }
+    return highest;
+  }, null);
+
+  cpuTemperatureEl.textContent = formatTemperature(systemStatus.temperature);
+  batteryVoltageEl.textContent = formatBattery(systemStatus.battery);
+  mountCountEl.textContent = String(systemStatus.mount_count ?? mounts.length ?? 0);
+  diskSummaryEl.textContent = mostUsedMount
+    ? `${mostUsedMount.mount_point} at ${mostUsedMount.percent_used}%`
+    : "No mount data";
+  renderMounts(mounts);
+}
+
 function renderSystemState(systemState) {
   hostnameEl.textContent = systemState.hostname || "Unknown";
   ipAddressesEl.textContent = (systemState.ip_addresses || []).join(", ") || "No IPv4 address detected";
@@ -108,9 +197,13 @@ async function loadSystemState() {
   renderSystemState(state);
 }
 
-async function loadUpdateStatus() {
-  const status = await getJson("/api/update-status");
-  renderUpdateStatus(status);
+async function loadSystemStatus() {
+  const status = await getJson("/api/system-status");
+  renderSystemHealth(status);
+}
+
+async function refreshOverview() {
+  await Promise.all([loadSystemState(), loadSystemStatus()]);
 }
 
 async function checkUpdateStatus() {
@@ -156,7 +249,7 @@ function renderPageNav() {
   pageNavEl.innerHTML = pages
     .map((page) => {
       const activeClass = page.id === currentPageId ? " is-active" : "";
-      return `<a class="page-link${activeClass}" href="#${page.id}">${page.label}</a>`;
+      return `<a class="page-link${activeClass}" href="#${page.id}">${escapeHtml(page.label)}</a>`;
     })
     .join("");
 }
@@ -176,11 +269,11 @@ function renderModules(modulesPayload) {
     .map(([moduleId, module]) => `
       <article class="module-card">
         <div>
-          <h3>${module.title || moduleId}</h3>
-          <p>${module.description || ""}</p>
+          <h3>${escapeHtml(module.title || moduleId)}</h3>
+          <p>${escapeHtml(module.description || "")}</p>
         </div>
         <label class="toggle module-toggle">
-          <input data-module-id="${moduleId}" type="checkbox" ${module.enabled ? "checked" : ""}>
+          <input data-module-id="${escapeHtml(moduleId)}" type="checkbox" ${module.enabled ? "checked" : ""}>
           <span>${module.enabled ? "Enabled" : "Disabled"}</span>
         </label>
       </article>
@@ -279,8 +372,30 @@ async function saveSettings(event) {
   }
 }
 
+async function requestPowerAction(action) {
+  const verb = action === "reboot" ? "reboot" : "power off";
+  if (!window.confirm(`Are you sure you want to ${verb} this device now?`)) {
+    return;
+  }
+
+  powerActionStatusEl.textContent = `Requesting ${verb}...`;
+
+  try {
+    const result = await getJson(`/api/actions/${action}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+    });
+    powerActionStatusEl.textContent = result.message || `${titleCase(action)} requested.`;
+  } catch (error) {
+    powerActionStatusEl.textContent = error.message;
+  }
+}
+
 document.getElementById("refreshStatus").addEventListener("click", () => {
-  loadSystemState().catch((error) => {
+  refreshOverview().catch((error) => {
     formStatusEl.textContent = error.message;
   });
 });
@@ -289,6 +404,14 @@ document.getElementById("refreshUpdate").addEventListener("click", () => {
   checkUpdateStatus().catch((error) => {
     updateMessageEl.textContent = error.message;
   });
+});
+
+rebootButtonEl.addEventListener("click", () => {
+  requestPowerAction("reboot");
+});
+
+haltButtonEl.addEventListener("click", () => {
+  requestPowerAction("halt");
 });
 
 modulesListEl.addEventListener("change", (event) => {
@@ -321,7 +444,7 @@ formEl.addEventListener("submit", (event) => {
   saveSettings(event);
 });
 
-loadSystemState().catch((error) => {
+refreshOverview().catch((error) => {
   formStatusEl.textContent = error.message;
 });
 

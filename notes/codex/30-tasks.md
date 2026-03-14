@@ -60,6 +60,7 @@
     - tempures
 - Reboot and halt in web interface
 - web update check uses configured repo path and does not require SSH login
+- status: done 2026-03-14
 
 ## Task 10
 - samba share

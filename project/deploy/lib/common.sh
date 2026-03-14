@@ -13,6 +13,7 @@ CLOCK_STATE_ROOT="${CLOCK_STATE_ROOT:-/var/lib/clock}"
 CLOCK_RELEASE_FILE="${CLOCK_RELEASE_FILE:-${CLOCK_STATE_ROOT}/release.env}"
 CLOCK_SYSTEMD_ROOT="${CLOCK_SYSTEMD_ROOT:-/etc/systemd/system}"
 CLOCK_AUTOSTART_ROOT="${CLOCK_AUTOSTART_ROOT:-/etc/xdg/autostart}"
+CLOCK_SUDOERS_ROOT="${CLOCK_SUDOERS_ROOT:-/etc/sudoers.d}"
 
 log() {
     printf '[clock] %s\n' "$*"
@@ -151,8 +152,10 @@ install_base_packages() {
 install_runtime_assets() {
     install -d -m 0755 "${CLOCK_SYSTEMD_ROOT}"
     install -d -m 0755 "${CLOCK_AUTOSTART_ROOT}"
+    install -d -m 0755 "${CLOCK_SUDOERS_ROOT}"
     install -m 0644 "${CLOCK_INSTALL_ROOT}/project/deploy/systemd/clock-web.service" "${CLOCK_SYSTEMD_ROOT}/clock-web.service"
     install -m 0644 "${CLOCK_INSTALL_ROOT}/project/deploy/autostart/clock-bedside.desktop" "${CLOCK_AUTOSTART_ROOT}/clock-bedside.desktop"
+    install -m 0440 "${CLOCK_INSTALL_ROOT}/project/deploy/sudoers/clock-power-control" "${CLOCK_SUDOERS_ROOT}/clock-power-control"
     chmod 0755 "${CLOCK_INSTALL_ROOT}/project/deploy/bin/start-bedside.sh"
 }
 

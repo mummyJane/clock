@@ -131,6 +131,10 @@ body {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.panel:not(.panel-emphasis) .metric-list div {
+  background: rgba(255, 255, 255, 0.54);
+}
+
 .metric-list dt {
   margin-bottom: 8px;
   font-size: 0.76rem;
@@ -227,6 +231,38 @@ body {
 
 .clock-metric-list div {
   background: rgba(255, 255, 255, 0.14);
+}
+
+.mount-list {
+  overflow-x: auto;
+}
+
+.mount-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.96rem;
+}
+
+.mount-table th,
+.mount-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.mount-table th {
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.power-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 18px 0 12px;
 }
 
 form {
@@ -329,7 +365,8 @@ select {
     display: grid;
   }
 
-  .page-link {
+  .page-link,
+  .power-actions button {
     width: 100%;
   }
 }

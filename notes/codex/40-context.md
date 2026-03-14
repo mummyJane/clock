@@ -21,3 +21,5 @@
 - Release `0.2.0` includes a Chromium kiosk launcher workaround to avoid desktop keyring password prompts on Raspberry Pi OS autologin sessions.
 - Task 9 now includes a configurable repository path in setup settings so the local web UI can run git update checks without requiring SSH access.
 - The `Check again` action now triggers a server-side `git fetch` and ahead/behind comparison against the configured upstream branch, then stores the result in `update-status.json`.
+- The Task 9 overview page now also shows live system health from `/api/system-status`, including mounts, disk usage, CPU temperature, and any detected battery voltage source under `/sys/class/power_supply`.
+- Task 9 power controls are exposed through `POST /api/actions/reboot` and `POST /api/actions/halt`; deployed installs rely on a dedicated sudoers rule so those actions work from the touchscreen without an SSH session.

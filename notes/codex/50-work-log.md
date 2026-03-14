@@ -90,3 +90,10 @@
 - Validation completed: called `validate_settings()` and `check_update_status()` directly against the current repository path and confirmed a valid update result was returned.
 - Validation completed: started `ThreadingHTTPServer` in-process, saved a repository path in settings, called `POST /api/update-status/check`, and confirmed `GET /api/update-status` returned the saved live git-check result.
 - Tooling issue: `apply_patch` continued to fail for `project/` files with `windows sandbox: setup refresh failed with status exit code: 1`, so the Task 9 project files were written via PowerShell `Set-Content`.
+- Extended the Task 9 backend with `GET /api/system-status`, plus `POST /api/actions/reboot` and `POST /api/actions/halt`, using `CLOCK_POWER_ACTION_MODE=mock` to support safe validation without scheduling a real shutdown.
+- Updated the overview UI to show live system health, mount details, and touchscreen reboot/power-off controls.
+- Added `project/deploy/sudoers/clock-power-control` and updated `project/deploy/lib/common.sh` so deployed installs copy it to `/etc/sudoers.d/clock-power-control` with mode `0440`.
+- Updated `project/docs/full-install.md` and `project/web/README.md` to document the Task 9 health and power-control behavior.
+- Validation completed: `python -m py_compile project/web/server.py`.
+- Validation completed: started `ThreadingHTTPServer` with `CLOCK_POWER_ACTION_MODE=mock`, confirmed `GET /api/system-status` returned mounts/temperature/battery payloads, and confirmed `POST /api/actions/reboot` plus `POST /api/actions/halt` returned scheduled mock responses.
+- Validation issue: the first Task 9 smoke test used `tempfile.mkdtemp()` under `D:\clock` and still hit a Windows `PermissionError` on the scratch JSON files; reran inside `D:\clock\.codex-temp-tests\task9-http`, which passed.

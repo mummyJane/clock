@@ -22,3 +22,5 @@
 - Force Chromium kiosk mode to use `--password-store=basic` and `--no-first-run` so Raspberry Pi OS autologin sessions do not block on a keyring password prompt.
 - Use a configurable local repository path for web update checks instead of hardcoding a checkout location, because the user may keep the repo in different paths on different Pi installs.
 - Make the `Check again` action call a dedicated backend endpoint that runs git commands, so the web UI can check for updates without SSH while keeping shell access on the server side only.
+- Expose system-health data through a separate `/api/system-status` endpoint instead of folding it into `/api/system`, so the lightweight setup state and the more Pi-specific runtime probes can evolve independently.
+- Use a dedicated sudoers drop-in for `/usr/sbin/shutdown` so the web UI can request reboot and halt actions without prompting for a password, while keeping privileged access narrower than full passwordless sudo.

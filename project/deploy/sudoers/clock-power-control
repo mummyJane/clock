@@ -1,0 +1,1 @@
+clock ALL=(root) NOPASSWD: /usr/sbin/shutdown

@@ -11,7 +11,7 @@
     <section class="hero">
       <p class="eyebrow">Clock Setup</p>
       <h1>Prepare the bedside clock without a keyboard.</h1>
-      <p class="lede">Use this local page to confirm network reachability, device identity, and manage which bedside modules are available on the device.</p>
+      <p class="lede">Use this local page to confirm network reachability, device identity, manage bedside modules, and control the unit when SSH is not available.</p>
     </section>
 
     <section class="workspace">
@@ -52,12 +52,55 @@
 
             <article class="panel">
               <div class="panel-header">
+                <h2>System health</h2>
+              </div>
+              <dl class="metric-list health-metric-list">
+                <div>
+                  <dt>CPU temperature</dt>
+                  <dd id="cpuTemperature">Loading...</dd>
+                </div>
+                <div>
+                  <dt>Clock battery</dt>
+                  <dd id="batteryVoltage">Loading...</dd>
+                </div>
+                <div>
+                  <dt>Mounts seen</dt>
+                  <dd id="mountCount">Loading...</dd>
+                </div>
+                <div>
+                  <dt>Largest disk use</dt>
+                  <dd id="diskSummary">Loading...</dd>
+                </div>
+              </dl>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
                 <h2>Update check</h2>
                 <button id="refreshUpdate" class="ghost-button" type="button">Check again</button>
               </div>
               <p id="updateSummary" class="status-copy">Loading update status...</p>
               <p id="updateMessage" class="support-copy"></p>
               <p id="updateDetails" class="support-copy"></p>
+            </article>
+
+            <article class="panel panel-wide">
+              <div class="panel-header">
+                <h2>Storage mounts</h2>
+              </div>
+              <div id="mountStatus" class="mount-list">Loading mount data...</div>
+            </article>
+
+            <article class="panel panel-wide">
+              <div class="panel-header">
+                <h2>Power controls</h2>
+              </div>
+              <p class="support-copy">Use these controls from the touchscreen when SSH is not available.</p>
+              <div class="power-actions">
+                <button id="rebootButton" class="primary-button" type="button">Reboot device</button>
+                <button id="haltButton" class="ghost-button" type="button">Power off device</button>
+              </div>
+              <p id="powerActionStatus" class="form-status" role="status"></p>
             </article>
 
             <article class="panel panel-form">
