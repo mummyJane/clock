@@ -35,3 +35,8 @@
 - Validation completed: started `ThreadingHTTPServer` in-process, confirmed `GET /api/modules` returned the default disabled clock module, confirmed `POST /api/modules` enabled it, and confirmed `GET /api/system` reflected the enabled module state.
 - Tooling issue: `apply_patch` failed repeatedly for files under `project/web` with `windows sandbox: setup refresh failed with status exit code: 1`, so the Task 4 code files were written via PowerShell `Set-Content` instead.
 - Validation issue: initial smoke scripts used `%LOCALAPPDATA%\\Temp` and failed cleanup with `PermissionError`; reran the checks inside `D:\\clock\\.codex-temp-tests` to keep validation inside the writable workspace.
+
+## 2026-03-14 Task 4.1
+- Added `project/modules/README.md` to define the module folder layout.
+- Added `project/modules/clock/README.md` as the filesystem home for the built-in clock module.
+- Validation completed: inspected the new module paths with `Get-ChildItem -Recurse project/modules`.

@@ -10,3 +10,4 @@
 - Keep module enablement in a separate `modules.json` file instead of folding it into setup settings, so module lifecycle can evolve independently from device-wide preferences.
 - Seed the `clock` module in the registry but keep it disabled by default to match Task 4 and to make new module pages opt-in.
 - Implement module pages as hash-routed sections in the existing static web app so Task 4 can add module navigation without introducing frontend dependencies.
+- Store module source and assets under `project/modules/<module-id>/` so the UI registry, runtime code, and deployment layout can share the same module identifiers.

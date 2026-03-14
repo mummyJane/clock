@@ -20,6 +20,7 @@
 - add a persisted module registry to the setup server
 - add a Modules page where all modules start disabled by default
 - show a module page in the web interface only after that module is enabled
+- create a `project/modules` folder layout with a built-in `clock` module directory
 
 ## Task 1 delivery
 - define a shared install and update script framework

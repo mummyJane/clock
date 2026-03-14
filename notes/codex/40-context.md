@@ -10,3 +10,4 @@
 - Task 4 adds module management to the existing setup UI instead of creating a separate admin surface.
 - Module state is persisted in `project/web/data/modules.json`, with the `clock` module seeded but disabled by default.
 - Enabled modules now add their own navigation entries in the web UI; the first module page is a Task 4 placeholder for the clock module until Task 5 adds settings.
+- Task 4.1 adds `project/modules/` as the filesystem home for modules, with `project/modules/clock/` reserved for the built-in clock module.

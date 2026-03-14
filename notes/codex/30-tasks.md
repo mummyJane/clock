@@ -18,6 +18,12 @@
 - when module is enabled add page for the module
 - status: done 2026-03-14
 
+## Task 4.1
+- add folders for the modules
+- create a folder for the built-in clock module
+- they should be a folder on the repo for all the modules
+- status: done 2026-03-14
+
 ## Task 5
 - clock module setting
     - type anaglog or digaly
