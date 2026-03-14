@@ -155,26 +155,27 @@ def read_cpu_temperature() -> dict[str, Any]:
 
 def read_battery_voltage() -> dict[str, Any]:
     try:
-        if not POWER_SUPPLY_ROOT.exists():
-            return {"volts": None, "status": "unavailable", "source": "none"}
+        result = subprocess.run(
+            ["vcgencmd", "pmic_read_adc", "BATT_V"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return {"volts": None, "status": "unavailable", "source": "vcgencmd"}
+    except subprocess.CalledProcessError:
+        return {"volts": None, "status": "error", "source": "vcgencmd"}
 
-        for supply in POWER_SUPPLY_ROOT.iterdir():
-            voltage_file = supply / "voltage_now"
-            if not voltage_file.exists():
-                continue
-            try:
-                raw_value = voltage_file.read_text(encoding="utf-8").strip()
-                return {
-                    "volts": round(int(raw_value) / 1_000_000, 3),
-                    "status": "ok",
-                    "source": supply.name,
-                }
-            except (OSError, ValueError):
-                return {"volts": None, "status": "error", "source": supply.name}
-    except OSError:
-        return {"volts": None, "status": "error", "source": "none"}
-
-    return {"volts": None, "status": "unavailable", "source": "none"}
+    output = result.stdout.strip()
+    try:
+        voltage_text = output.split("=", 1)[1].strip().rstrip("Vv")
+        return {
+            "volts": round(float(voltage_text), 3),
+            "status": "ok",
+            "source": "rtc",
+        }
+    except (IndexError, ValueError):
+        return {"volts": None, "status": "error", "source": "vcgencmd"}
 
 
 def get_mount_status() -> list[dict[str, Any]]:
@@ -642,5 +643,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 
 

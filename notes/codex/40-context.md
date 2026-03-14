@@ -24,3 +24,4 @@
 - The Task 9 overview page now also shows live system health from `/api/system-status`, including mounts, disk usage, CPU temperature, and any detected battery voltage source under `/sys/class/power_supply`.
 - Task 9 power controls are exposed through `POST /api/actions/reboot` and `POST /api/actions/halt`; deployed installs rely on a dedicated sudoers rule so those actions work from the touchscreen without an SSH session.
 - The Task 9 update check now passes `git -c safe.directory=<repo_path>` for each git command, so a repo owned by the login user can still be checked by the `clock` service user without requiring a manual git config change.
+- The current battery field in Task 9 now specifically reports the Pi RTC backup battery using `vcgencmd pmic_read_adc BATT_V`; a future UPS battery should be added as a separate status item rather than merged into the same field.

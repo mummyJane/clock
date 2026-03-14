@@ -103,3 +103,6 @@
 - Runtime follow-up: the overview `System health` and `Storage mounts` panels stayed on loading text on the Pi, which indicated `/api/system-status` was likely failing partway through a platform-specific probe.
 - Fix applied: hardened `read_battery_voltage()`, `get_mount_status()`, and `build_system_status()` so probe failures return error/unavailable payloads instead of aborting the whole endpoint, and updated `project/web/static/app.js` to replace loading placeholders with a visible error message if the health request fails.
 - Validation completed: `python -m py_compile project/web/server.py` and an in-process HTTP smoke test confirmed `GET /api/system-status` still returns HTTP 200 with temperature, battery, and mounts keys.
+- Runtime follow-up: the Pi reports RTC backup voltage correctly through `vcgencmd pmic_read_adc BATT_V`, while the earlier `/sys/class/power_supply` probe does not reflect that hardware.
+- Fix applied: switched the Task 9 battery probe in `project/web/server.py` to parse `vcgencmd pmic_read_adc BATT_V`, and relabeled the overview field to `RTC battery` in `project/web/static/index.html`.
+- Validation completed: `python -m py_compile project/web/server.py` and a direct mocked parser test confirmed `read_battery_voltage()` returns an `rtc` source with the parsed float voltage.

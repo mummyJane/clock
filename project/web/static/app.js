@@ -107,7 +107,7 @@ function formatBattery(payload) {
   if (payload.status === "error" || payload.volts == null) {
     return "Read error";
   }
-  return `${payload.volts.toFixed(3)} V${payload.source && payload.source !== "none" ? ` (${payload.source})` : ""}`;
+  return `${payload.volts.toFixed(3)} V${payload.source === "rtc" ? " (RTC)" : ""}`;
 }
 
 function renderMounts(mounts) {
@@ -464,3 +464,4 @@ refreshOverview().catch((error) => {
 loadModules().catch((error) => {
   moduleStatusEl.textContent = error.message;
 });
+
