@@ -7,8 +7,15 @@
   <link rel="stylesheet" href="/bedside.css">
 </head>
 <body>
-  <main class="bedside-shell">
+  <main id="bedsideShell" class="bedside-shell">
+    <section id="mediaStage" class="media-stage is-hidden" aria-live="polite"></section>
     <div id="bedsideModules" class="bedside-modules" aria-live="polite"></div>
+    <div id="mediaControls" class="media-controls is-hidden">
+      <button id="mediaPlay" class="control-button" type="button">Play</button>
+      <button id="mediaPause" class="control-button" type="button">Pause</button>
+      <button id="mediaStop" class="control-button" type="button">Stop</button>
+      <button id="mediaClear" class="control-button control-button-soft" type="button">Clear</button>
+    </div>
   </main>
   <script src="/bedside.js"></script>
 </body>

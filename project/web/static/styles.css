@@ -370,3 +370,71 @@ select {
     width: 100%;
   }
 }
+.media-grid .panel-form {
+  grid-column: span 4;
+}
+
+.media-meta-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.media-meta-list div,
+.media-selection-card,
+.media-entry-card {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.48);
+}
+
+.media-meta-list dt {
+  margin-bottom: 8px;
+  font-size: 0.76rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.media-meta-list dd,
+.media-selection-card h3,
+.media-selection-card p,
+.media-entry-card h3,
+.media-entry-card p {
+  margin: 0;
+}
+
+.media-selection {
+  display: grid;
+  gap: 14px;
+}
+
+.media-browser {
+  display: grid;
+  gap: 14px;
+}
+
+.media-entry-list {
+  display: grid;
+  gap: 14px;
+}
+
+.media-entry-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.media-entry-note {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+@media (max-width: 640px) {
+  .media-entry-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

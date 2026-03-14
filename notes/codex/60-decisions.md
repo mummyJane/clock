@@ -25,3 +25,6 @@
 - Expose system-health data through a separate `/api/system-status` endpoint instead of folding it into `/api/system`, so the lightweight setup state and the more Pi-specific runtime probes can evolve independently.
 - Use a dedicated sudoers drop-in for `/usr/sbin/shutdown` so the web UI can request reboot and halt actions without prompting for a password, while keeping privileged access narrower than full passwordless sudo.
 - Pass `safe.directory` as an inline git config on Task 9 update checks instead of mutating the service user's global git config, so user-owned working trees can be inspected safely without creating hidden host-specific git state.
+- Use `/var/lib/clock/media` as the Task 10 media root so uploaded files survive application updates and live alongside the other persistent runtime state.
+- Expose the media library over a guest Samba share named `clock-media` because Task 10 is specifically about loading files without SSH and the device is intended for a trusted local network.
+- Keep media selection and playback state in a separate `media-state.json` file rather than folding it into module settings, because media playback is a device-level runtime concern and not a property of the clock module itself.

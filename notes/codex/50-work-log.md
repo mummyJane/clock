@@ -106,3 +106,15 @@
 - Runtime follow-up: the Pi reports RTC backup voltage correctly through `vcgencmd pmic_read_adc BATT_V`, while the earlier `/sys/class/power_supply` probe does not reflect that hardware.
 - Fix applied: switched the Task 9 battery probe in `project/web/server.py` to parse `vcgencmd pmic_read_adc BATT_V`, and relabeled the overview field to `RTC battery` in `project/web/static/index.html`.
 - Validation completed: `python -m py_compile project/web/server.py` and a direct mocked parser test confirmed `read_battery_voltage()` returns an `rtc` source with the parsed float voltage.
+
+## 2026-03-14 Task 10
+- Re-read `AGENTS.md`, `notes/codex/10-spec.md`, `notes/codex/20-plan.md`, `notes/codex/30-tasks.md`, and the current bedside/setup runtime before editing.
+- Extended `project/web/server.py` with media library APIs for browsing folders, selecting supported image/audio/video files, changing playback state, and streaming media files with byte-range support.
+- Added persistent media state data in `project/web/data/media-state.json` and seeded a repo-local media folder at `project/web/data/media/`.
+- Updated `project/web/static/index.html`, `project/web/static/app.js`, and `project/web/static/styles.css` to add a `Media` page with Samba path display, folder browsing, file selection, and selection clearing.
+- Updated `project/web/static/bedside.html`, `project/web/static/bedside.js`, and `project/web/static/bedside.css` so selected media is rendered in bedside mode with touch-revealed playback controls that auto-hide after a short timeout.
+- Reworked `project/deploy/lib/common.sh` so deployed installs seed `/var/lib/clock/media-state.json`, create `/var/lib/clock/media`, install Samba, and publish a guest `clock-media` share backed by that persistent media directory.
+- Updated `project/web/README.md` and `project/docs/full-install.md` to document the new media APIs, Samba share, and bedside playback flow.
+- Validation completed: `python -m py_compile project/web/server.py`.
+- Validation completed: started `ThreadingHTTPServer` against a workspace-local media root, confirmed `GET /api/media/files` listed media entries, confirmed `POST /api/media/select` and `POST /api/media/action` updated media state, and confirmed `GET /media/photo.jpg` returned HTTP 206 for a range request.
+- Tooling issue: `apply_patch` continued to fail for `project/` files with `windows sandbox: setup refresh failed with status exit code: 1`, so the Task 10 project files were edited through PowerShell file writes instead.

@@ -11,6 +11,7 @@ CLOCK_INSTALL_ROOT="${CLOCK_INSTALL_ROOT:-/opt/clock}"
 CLOCK_CONFIG_ROOT="${CLOCK_CONFIG_ROOT:-/etc/clock}"
 CLOCK_STATE_ROOT="${CLOCK_STATE_ROOT:-/var/lib/clock}"
 CLOCK_RELEASE_FILE="${CLOCK_RELEASE_FILE:-${CLOCK_STATE_ROOT}/release.env}"
+CLOCK_MEDIA_ROOT="${CLOCK_MEDIA_ROOT:-${CLOCK_STATE_ROOT}/media}"
 CLOCK_SYSTEMD_ROOT="${CLOCK_SYSTEMD_ROOT:-/etc/systemd/system}"
 CLOCK_AUTOSTART_ROOT="${CLOCK_AUTOSTART_ROOT:-/etc/xdg/autostart}"
 CLOCK_SUDOERS_ROOT="${CLOCK_SUDOERS_ROOT:-/etc/sudoers.d}"
@@ -68,12 +69,17 @@ ensure_clock_user() {
             --shell /usr/sbin/nologin \
             "${CLOCK_USER}"
     fi
+
+    if getent group video >/dev/null; then
+        usermod -aG video "${CLOCK_USER}"
+    fi
 }
 
 create_layout() {
     install -d -m 0755 "${CLOCK_INSTALL_ROOT}"
     install -d -m 0755 "${CLOCK_CONFIG_ROOT}"
     install -d -m 0755 "${CLOCK_STATE_ROOT}"
+    install -d -m 0775 "${CLOCK_MEDIA_ROOT}"
     chown -R "${CLOCK_USER}:${CLOCK_GROUP}" "${CLOCK_INSTALL_ROOT}" "${CLOCK_STATE_ROOT}"
 }
 
@@ -93,6 +99,8 @@ CLOCK_SETUP_FILE=${CLOCK_STATE_ROOT}/settings.json
 CLOCK_RELEASE_FILE=${CLOCK_STATE_ROOT}/release.json
 CLOCK_UPDATE_FILE=${CLOCK_STATE_ROOT}/update-status.json
 CLOCK_MODULES_FILE=${CLOCK_STATE_ROOT}/modules.json
+CLOCK_MEDIA_STATE_FILE=${CLOCK_STATE_ROOT}/media-state.json
+CLOCK_MEDIA_ROOT=${CLOCK_MEDIA_ROOT}
 EOF
 }
 
@@ -105,6 +113,11 @@ seed_runtime_state() {
         install -m 0644 "${CLOCK_INSTALL_ROOT}/project/web/data/update-status.json" "${CLOCK_STATE_ROOT}/update-status.json"
     fi
 
+    if [[ ! -f "${CLOCK_STATE_ROOT}/media-state.json" ]]; then
+        install -m 0644 "${CLOCK_INSTALL_ROOT}/project/web/data/media-state.json" "${CLOCK_STATE_ROOT}/media-state.json"
+    fi
+
+    install -d -m 0775 "${CLOCK_MEDIA_ROOT}"
     chown -R "${CLOCK_USER}:${CLOCK_GROUP}" "${CLOCK_STATE_ROOT}"
 }
 
@@ -145,7 +158,8 @@ install_base_packages() {
         curl \
         jq \
         avahi-daemon \
-        python3
+        python3 \
+        samba
     apt_install_chromium
 }
 
@@ -170,6 +184,27 @@ enable_runtime_services() {
     systemctl enable --now clock-web.service
 }
 
+configure_samba_share() {
+    local samba_include="include = ${CLOCK_CONFIG_ROOT}/samba-clock.conf"
+    cat > "${CLOCK_CONFIG_ROOT}/samba-clock.conf" <<EOF
+[clock-media]
+path = ${CLOCK_MEDIA_ROOT}
+browseable = yes
+read only = no
+guest ok = yes
+force user = ${CLOCK_USER}
+create mask = 0664
+directory mask = 0775
+EOF
+
+    if [[ -f /etc/samba/smb.conf ]] && ! grep -Fq "${samba_include}" /etc/samba/smb.conf; then
+        printf '\n%s\n' "${samba_include}" >> /etc/samba/smb.conf
+    fi
+
+    systemctl enable --now smbd >/dev/null 2>&1 || true
+    systemctl restart smbd >/dev/null 2>&1 || true
+}
+
 install_release_common() {
     local release_name="$1"
     require_root
@@ -186,6 +221,7 @@ install_release_common() {
 install_runtime_common() {
     install_runtime_assets
     configure_boot_mode
+    configure_samba_share
     enable_runtime_services
-    log "Installed bedside runtime service and desktop autostart assets"
+    log "Installed bedside runtime service, Samba media share, and desktop autostart assets"
 }

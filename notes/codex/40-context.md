@@ -25,3 +25,6 @@
 - Task 9 power controls are exposed through `POST /api/actions/reboot` and `POST /api/actions/halt`; deployed installs rely on a dedicated sudoers rule so those actions work from the touchscreen without an SSH session.
 - The Task 9 update check now passes `git -c safe.directory=<repo_path>` for each git command, so a repo owned by the login user can still be checked by the `clock` service user without requiring a manual git config change.
 - The current battery field in Task 9 now specifically reports the Pi RTC backup battery using `vcgencmd pmic_read_adc BATT_V`; a future UPS battery should be added as a separate status item rather than merged into the same field.
+- Task 10 adds a persistent media library rooted at `/var/lib/clock/media`, with a Samba share named `clock-media` so files can be copied onto the device without SSH.
+- The setup web interface now includes a `Media` page for browsing folders in the media root, selecting a supported image/audio/video file, and clearing the current selection.
+- Bedside mode now checks the persisted media state and, when a file is selected, renders that image/audio/video full-screen with on-screen controls that only appear after touch and auto-hide after a short timeout.

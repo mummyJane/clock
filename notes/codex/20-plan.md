@@ -45,6 +45,12 @@
 - add overview system-health reporting for mounts, disk usage, CPU temperature, and battery voltage
 - add web-triggered reboot and halt actions for use when SSH is not available
 
+## Task 10 delivery
+- add a persistent media library under the deployed runtime state path and expose it over Samba
+- add a Media page in the setup interface for browsing folders and selecting supported image/audio/video files
+- add media selection and playback-state APIs to the local web server, including media file streaming for bedside playback
+- render selected media in bedside mode with touch-revealed playback controls that auto-hide after a short timeout
+
 ## Release 0.2.0 delivery
 - add the clock module settings required for bedside rendering
 - start the web runtime automatically on boot

@@ -16,7 +16,7 @@ Bring a Raspberry Pi 5 from a fresh Raspberry Pi OS install to the current suppo
 2. Clone the `clock` repository onto the Pi.
 3. Run `sudo ./install/install-latest.sh`.
 4. Reboot the Pi and verify it opens the bedside mode automatically.
-5. Use the setup page to enable modules, adjust clock settings, and verify system health.
+5. Use the setup page to enable modules, adjust clock settings, browse media files, and verify system health.
 
 ## Example
 
@@ -33,17 +33,18 @@ sudo reboot
 
 ## What the install scripts do
 
-- install required packages: `git`, `rsync`, `curl`, `jq`, `avahi-daemon`, `python3`, and a Chromium package
+- install required packages: `git`, `rsync`, `curl`, `jq`, `avahi-daemon`, `python3`, `samba`, and a Chromium package
 - prefer `chromium` on newer Raspberry Pi OS and fall back to `chromium-browser` on older images
-- create the dedicated `clock` system user and group
-- create `/opt/clock`, `/etc/clock`, and `/var/lib/clock`
+- create the dedicated `clock` system user and group, and add that user to the `video` group when present for Pi firmware access
+- create `/opt/clock`, `/etc/clock`, `/var/lib/clock`, and `/var/lib/clock/media`
 - sync the repository `project` directory into `/opt/clock/project`
 - create `/etc/clock/clock.env` pointing the web server at persistent JSON state files in `/var/lib/clock`
-- seed `/var/lib/clock/modules.json` and `/var/lib/clock/update-status.json` on first install
+- seed `/var/lib/clock/modules.json`, `/var/lib/clock/update-status.json`, and `/var/lib/clock/media-state.json` on first install
 - record the installed release in `/var/lib/clock/release.env` and `/var/lib/clock/release.json`
 - install and enable the `clock-web.service` systemd unit
 - install a desktop autostart entry that opens Chromium in kiosk mode on `http://127.0.0.1:8080/bedside.html`
 - install `/etc/sudoers.d/clock-power-control` so the setup page can request reboot and halt actions without an SSH login
+- enable a Samba share named `clock-media` that points at `/var/lib/clock/media`
 - try to switch Raspberry Pi OS boot behavior to Desktop Autologin using `raspi-config`
 
 ## Update flow
@@ -55,14 +56,21 @@ sudo ./update/update-latest.sh
 sudo ./update/update-test.sh
 ```
 
-Both update entrypoints currently target `0.2.0`. Updates keep the live module and setup JSON data in `/var/lib/clock`, so enabled modules and settings survive application syncs.
+Both update entrypoints currently target `0.2.0`. Updates keep the live module, setup, and media-state JSON data in `/var/lib/clock`, and the shared media files remain in `/var/lib/clock/media`.
 
-## Task 9 web controls
+## Task 9 and Task 10 web controls
 
-After deployment, the setup page overview now exposes:
+After deployment, the setup page overview exposes:
 
-- a live system health summary with CPU temperature, detected battery voltage, disk usage, and mounts
+- a live system health summary with CPU temperature, RTC battery voltage, disk usage, and mounts
 - a repository-path driven `Check again` action that performs a real git fetch/check on the device
 - `Reboot device` and `Power off device` buttons that call the local web API, which then runs `sudo /usr/sbin/shutdown`
+
+The new Media page exposes:
+
+- the persistent Samba-backed media folder path
+- a file browser for folders and supported image/audio/video files
+- selection of a file for bedside playback or display
+- clearing the current selection when you want the bedside screen to return to normal modules only
 
 If you want to test the power endpoints without actually rebooting the Pi, set `CLOCK_POWER_ACTION_MODE=mock` in the service environment before starting the web server.

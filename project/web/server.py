@@ -13,7 +13,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 
 APP_ROOT = Path(__file__).resolve().parent
@@ -23,6 +23,8 @@ SETTINGS_PATH = Path(os.environ.get("CLOCK_SETUP_FILE", DEFAULT_DATA_ROOT / "set
 RELEASE_PATH = Path(os.environ.get("CLOCK_RELEASE_FILE", DEFAULT_DATA_ROOT / "release.json"))
 UPDATE_STATUS_PATH = Path(os.environ.get("CLOCK_UPDATE_FILE", DEFAULT_DATA_ROOT / "update-status.json"))
 MODULES_PATH = Path(os.environ.get("CLOCK_MODULES_FILE", DEFAULT_DATA_ROOT / "modules.json"))
+MEDIA_STATE_PATH = Path(os.environ.get("CLOCK_MEDIA_STATE_FILE", DEFAULT_DATA_ROOT / "media-state.json"))
+MEDIA_ROOT = Path(os.environ.get("CLOCK_MEDIA_ROOT", DEFAULT_DATA_ROOT / "media"))
 POWER_ACTION_MODE = os.environ.get("CLOCK_POWER_ACTION_MODE", "live")
 THERMAL_PATH = Path("/sys/class/thermal/thermal_zone0/temp")
 POWER_SUPPLY_ROOT = Path("/sys/class/power_supply")
@@ -49,6 +51,7 @@ MOUNT_EXCLUDE_TYPES = {
     "tmpfs",
     "tracefs",
 }
+MEDIA_FILE_KINDS = {"image", "audio", "video"}
 
 CLOCK_DISPLAY_TYPES = {"analog", "digital"}
 CLOCK_HOUR_MODES = {"12", "24"}
@@ -86,6 +89,13 @@ DEFAULT_UPDATE_STATUS: dict[str, Any] = {
     "message": "No update metadata is available yet.",
     "checked_at": "never",
     "repo_path": "",
+}
+
+DEFAULT_MEDIA_STATE: dict[str, Any] = {
+    "selected_file": "",
+    "selected_kind": "none",
+    "playback_state": "stopped",
+    "updated_at": "never",
 }
 
 DEFAULT_MODULES: dict[str, Any] = {
@@ -240,6 +250,142 @@ def build_system_status() -> dict[str, Any]:
             "mounts": [],
             "mount_count": 0,
         }
+
+
+def media_kind_for_name(name: str) -> str:
+    content_type, _ = mimetypes.guess_type(name)
+    if not content_type:
+        return "other"
+    if content_type.startswith("image/"):
+        return "image"
+    if content_type.startswith("audio/"):
+        return "audio"
+    if content_type.startswith("video/"):
+        return "video"
+    return "other"
+
+
+def clean_media_relative_path(value: str) -> str:
+    normalized = str(value or "").replace("\\", "/").strip("/")
+    if not normalized:
+        return ""
+    path = Path(normalized)
+    if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+        raise ValueError("Media path is invalid.")
+    return path.as_posix()
+
+
+def resolve_media_path(relative_path: str) -> Path:
+    cleaned = clean_media_relative_path(relative_path)
+    media_root = MEDIA_ROOT.resolve()
+    candidate = (media_root / cleaned).resolve()
+    if not str(candidate).startswith(str(media_root)):
+        raise ValueError("Media path escapes the media root.")
+    return candidate
+
+
+def list_media_entries(relative_path: str = "") -> dict[str, Any]:
+    directory = resolve_media_path(relative_path)
+    if not directory.exists():
+        raise ValueError("Media path does not exist.")
+    if not directory.is_dir():
+        raise ValueError("Media path is not a directory.")
+
+    entries: list[dict[str, Any]] = []
+    for child in sorted(directory.iterdir(), key=lambda item: (not item.is_dir(), item.name.lower())):
+        if child.name.startswith("."):
+            continue
+        child_relative = child.relative_to(MEDIA_ROOT.resolve()).as_posix()
+        if child.is_dir():
+            entries.append(
+                {
+                    "name": child.name,
+                    "type": "directory",
+                    "relative_path": child_relative,
+                    "kind": "directory",
+                }
+            )
+            continue
+
+        kind = media_kind_for_name(child.name)
+        entries.append(
+            {
+                "name": child.name,
+                "type": "file",
+                "relative_path": child_relative,
+                "kind": kind,
+                "size_bytes": child.stat().st_size,
+                "selectable": kind in MEDIA_FILE_KINDS,
+            }
+        )
+
+    current_path = clean_media_relative_path(relative_path)
+    parent_path = ""
+    if current_path:
+        parent = Path(current_path).parent
+        parent_path = "" if str(parent) == "." else parent.as_posix()
+
+    return {
+        "share_path": str(MEDIA_ROOT),
+        "current_path": current_path,
+        "parent_path": parent_path,
+        "entries": entries,
+    }
+
+
+def load_media_state() -> dict[str, Any]:
+    return load_json(MEDIA_STATE_PATH, DEFAULT_MEDIA_STATE)
+
+
+def save_media_state(payload: dict[str, Any]) -> dict[str, Any]:
+    state = dict(DEFAULT_MEDIA_STATE)
+    state.update(payload)
+    save_json(MEDIA_STATE_PATH, state)
+    return state
+
+
+def select_media_file(relative_path: str) -> dict[str, Any]:
+    cleaned = clean_media_relative_path(relative_path)
+    file_path = resolve_media_path(cleaned)
+    if not file_path.exists() or not file_path.is_file():
+        raise ValueError("Selected media file does not exist.")
+
+    kind = media_kind_for_name(file_path.name)
+    if kind not in MEDIA_FILE_KINDS:
+        raise ValueError("Selected file is not a supported image, audio, or video file.")
+
+    return save_media_state(
+        {
+            "selected_file": cleaned,
+            "selected_kind": kind,
+            "playback_state": "playing",
+            "updated_at": current_timestamp(),
+        }
+    )
+
+
+def change_media_playback(action: str) -> dict[str, Any]:
+    if action not in {"play", "pause", "stop", "clear"}:
+        raise ValueError("Unsupported media action.")
+
+    state = load_media_state()
+    if action == "clear":
+        return save_media_state(
+            {
+                "selected_file": "",
+                "selected_kind": "none",
+                "playback_state": "stopped",
+                "updated_at": current_timestamp(),
+            }
+        )
+
+    if not state.get("selected_file"):
+        raise ValueError("Select a media file before changing playback.")
+
+    next_state = dict(state)
+    next_state["playback_state"] = "playing" if action == "play" else action
+    next_state["updated_at"] = current_timestamp()
+    return save_media_state(next_state)
 
 
 def request_power_action(action: str) -> dict[str, Any]:
@@ -506,6 +652,7 @@ def build_system_state() -> dict[str, Any]:
     update_status = load_json(UPDATE_STATUS_PATH, DEFAULT_UPDATE_STATUS)
     settings = load_json(SETTINGS_PATH, DEFAULT_SETTINGS)
     modules = load_json(MODULES_PATH, DEFAULT_MODULES)
+    media_state = load_media_state()
     return {
         "hostname": socket.gethostname(),
         "ip_addresses": get_ip_addresses(),
@@ -513,6 +660,7 @@ def build_system_state() -> dict[str, Any]:
         "update_status": update_status,
         "settings": settings,
         "modules": modules,
+        "media_state": media_state,
     }
 
 
@@ -536,6 +684,16 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/update-status":
             self.send_json(load_json(UPDATE_STATUS_PATH, DEFAULT_UPDATE_STATUS))
             return
+        if parsed.path == "/api/media/files":
+            media_path = parse_qs(parsed.query).get("path", [""])[0]
+            self.handle_media_listing(media_path)
+            return
+        if parsed.path == "/api/media/state":
+            self.send_json(load_media_state())
+            return
+        if parsed.path.startswith("/media/"):
+            self.serve_media(parsed.path.removeprefix("/media/"))
+            return
         self.serve_static(parsed.path)
 
     def do_POST(self) -> None:  # noqa: N802
@@ -554,6 +712,12 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/actions/halt":
             self.handle_power_action("halt")
+            return
+        if parsed.path == "/api/media/select":
+            self.handle_media_select()
+            return
+        if parsed.path == "/api/media/action":
+            self.handle_media_action()
             return
         self.send_error(HTTPStatus.NOT_FOUND, "Endpoint not found.")
 
@@ -598,10 +762,46 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
         status = HTTPStatus.OK if result.get("status") != "error" else HTTPStatus.BAD_REQUEST
         self.send_json(result, status)
 
+    def handle_media_listing(self, media_path: str) -> None:
+        try:
+            listing = list_media_entries(media_path)
+        except ValueError as exc:
+            self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        self.send_json(listing, HTTPStatus.OK)
+
+    def handle_media_select(self) -> None:
+        content_length = int(self.headers.get("Content-Length", "0"))
+        raw_body = self.rfile.read(content_length)
+        try:
+            payload = json.loads(raw_body.decode("utf-8"))
+            state = select_media_file(str(payload.get("relative_path", "")))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            self.send_json({"error": f"Invalid JSON payload: {exc}"}, HTTPStatus.BAD_REQUEST)
+            return
+        except ValueError as exc:
+            self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        self.send_json(state, HTTPStatus.OK)
+
+    def handle_media_action(self) -> None:
+        content_length = int(self.headers.get("Content-Length", "0"))
+        raw_body = self.rfile.read(content_length)
+        try:
+            payload = json.loads(raw_body.decode("utf-8"))
+            state = change_media_playback(str(payload.get("action", "")))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            self.send_json({"error": f"Invalid JSON payload: {exc}"}, HTTPStatus.BAD_REQUEST)
+            return
+        except ValueError as exc:
+            self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        self.send_json(state, HTTPStatus.OK)
+
     def serve_static(self, request_path: str) -> None:
         normalized = request_path.lstrip("/") or "index.html"
         file_path = (STATIC_ROOT / normalized).resolve()
-        if not str(file_path).startswith(str(STATIC_ROOT.resolve())) or not file_path.exists():
+        if not str(file_path).startswith(str(STATIC_ROOT.resolve())):
             self.send_error(HTTPStatus.NOT_FOUND, "File not found.")
             return
         if file_path.is_dir():
@@ -609,14 +809,60 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
         if not file_path.exists():
             self.send_error(HTTPStatus.NOT_FOUND, "File not found.")
             return
+        self.serve_file(file_path)
 
+    def serve_media(self, relative_path: str) -> None:
+        try:
+            file_path = resolve_media_path(relative_path)
+        except ValueError:
+            self.send_error(HTTPStatus.NOT_FOUND, "File not found.")
+            return
+        if not file_path.exists() or not file_path.is_file():
+            self.send_error(HTTPStatus.NOT_FOUND, "File not found.")
+            return
+        self.serve_file(file_path)
+
+    def serve_file(self, file_path: Path) -> None:
         content_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
-        body = file_path.read_bytes()
-        self.send_response(HTTPStatus.OK)
+        file_size = file_path.stat().st_size
+        range_header = self.headers.get("Range")
+        start = 0
+        end = file_size - 1
+        status = HTTPStatus.OK
+
+        if range_header and range_header.startswith("bytes="):
+            try:
+                range_spec = range_header.removeprefix("bytes=").split(",", 1)[0]
+                start_text, end_text = range_spec.split("-", 1)
+                if start_text:
+                    start = int(start_text)
+                if end_text:
+                    end = int(end_text)
+                if start < 0 or end >= file_size or start > end:
+                    raise ValueError
+                status = HTTPStatus.PARTIAL_CONTENT
+            except ValueError:
+                self.send_error(HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE, "Invalid range.")
+                return
+
+        content_length = end - start + 1
+        self.send_response(status)
         self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Length", str(content_length))
+        if status == HTTPStatus.PARTIAL_CONTENT:
+            self.send_header("Content-Range", f"bytes {start}-{end}/{file_size}")
         self.end_headers()
-        self.wfile.write(body)
+
+        with file_path.open("rb") as handle:
+            handle.seek(start)
+            remaining = content_length
+            while remaining > 0:
+                chunk = handle.read(min(64 * 1024, remaining))
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+                remaining -= len(chunk)
 
     def send_json(self, payload: dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:
         body = json.dumps(payload).encode("utf-8")
@@ -636,6 +882,8 @@ def main() -> None:
     ensure_parent(RELEASE_PATH)
     ensure_parent(UPDATE_STATUS_PATH)
     ensure_parent(MODULES_PATH)
+    ensure_parent(MEDIA_STATE_PATH)
+    MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
     server = ThreadingHTTPServer(("0.0.0.0", port), ClockRequestHandler)
     print(f"Clock setup server listening on http://0.0.0.0:{port}")
     server.serve_forever()
@@ -643,6 +891,17 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+
+
+
+
+
+
 
 
 

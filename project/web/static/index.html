@@ -11,7 +11,7 @@
     <section class="hero">
       <p class="eyebrow">Clock Setup</p>
       <h1>Prepare the bedside clock without a keyboard.</h1>
-      <p class="lede">Use this local page to confirm network reachability, device identity, manage bedside modules, and control the unit when SSH is not available.</p>
+      <p class="lede">Use this local page to confirm network reachability, device identity, manage bedside modules, browse the shared media folder, and control the unit when SSH is not available.</p>
     </section>
 
     <section class="workspace">
@@ -31,22 +31,10 @@
                 <button id="refreshStatus" class="ghost-button" type="button">Refresh</button>
               </div>
               <dl class="metric-list">
-                <div>
-                  <dt>Hostname</dt>
-                  <dd id="hostname">Loading...</dd>
-                </div>
-                <div>
-                  <dt>IP addresses</dt>
-                  <dd id="ipAddresses">Loading...</dd>
-                </div>
-                <div>
-                  <dt>Installed release</dt>
-                  <dd id="installedRelease">Loading...</dd>
-                </div>
-                <div>
-                  <dt>Last update</dt>
-                  <dd id="updatedAt">Loading...</dd>
-                </div>
+                <div><dt>Hostname</dt><dd id="hostname">Loading...</dd></div>
+                <div><dt>IP addresses</dt><dd id="ipAddresses">Loading...</dd></div>
+                <div><dt>Installed release</dt><dd id="installedRelease">Loading...</dd></div>
+                <div><dt>Last update</dt><dd id="updatedAt">Loading...</dd></div>
               </dl>
             </article>
 
@@ -55,22 +43,10 @@
                 <h2>System health</h2>
               </div>
               <dl class="metric-list health-metric-list">
-                <div>
-                  <dt>CPU temperature</dt>
-                  <dd id="cpuTemperature">Loading...</dd>
-                </div>
-                <div>
-                  <dt>RTC battery</dt>
-                  <dd id="batteryVoltage">Loading...</dd>
-                </div>
-                <div>
-                  <dt>Mounts seen</dt>
-                  <dd id="mountCount">Loading...</dd>
-                </div>
-                <div>
-                  <dt>Largest disk use</dt>
-                  <dd id="diskSummary">Loading...</dd>
-                </div>
+                <div><dt>CPU temperature</dt><dd id="cpuTemperature">Loading...</dd></div>
+                <div><dt>RTC battery</dt><dd id="batteryVoltage">Loading...</dd></div>
+                <div><dt>Mounts seen</dt><dd id="mountCount">Loading...</dd></div>
+                <div><dt>Largest disk use</dt><dd id="diskSummary">Loading...</dd></div>
               </dl>
             </article>
 
@@ -108,24 +84,11 @@
                 <h2>Setup preferences</h2>
               </div>
               <form id="settingsForm">
-                <label>
-                  <span>Device name</span>
-                  <input id="deviceName" name="device_name" type="text" maxlength="64" required>
-                </label>
-                <label>
-                  <span>Timezone</span>
-                  <input id="timezone" name="timezone" type="text" maxlength="64" required>
-                </label>
-                <label>
-                  <span>Web port</span>
-                  <input id="webPort" name="web_port" type="number" min="1" max="65535" required>
-                </label>
-                <label>
-                  <span>Repository path</span>
-                  <input id="repoPath" name="repo_path" type="text" maxlength="512" placeholder="/home/pi/clock">
-                </label>
-                <label>
-                  <span>Update channel</span>
+                <label><span>Device name</span><input id="deviceName" name="device_name" type="text" maxlength="64" required></label>
+                <label><span>Timezone</span><input id="timezone" name="timezone" type="text" maxlength="64" required></label>
+                <label><span>Web port</span><input id="webPort" name="web_port" type="number" min="1" max="65535" required></label>
+                <label><span>Repository path</span><input id="repoPath" name="repo_path" type="text" maxlength="512" placeholder="/home/pi/clock"></label>
+                <label><span>Update channel</span>
                   <select id="updateChannel" name="update_channel">
                     <option value="stable">Stable</option>
                     <option value="test">Test</option>
@@ -144,6 +107,37 @@
           </div>
         </section>
 
+        <section class="page" data-page="media">
+          <div class="grid media-grid">
+            <article class="panel panel-form">
+              <div class="panel-header">
+                <h2>Media library</h2>
+              </div>
+              <p class="support-copy">Copy image, audio, or video files into the Samba share and choose one here for bedside playback.</p>
+              <dl class="media-meta-list">
+                <div><dt>Samba share path</dt><dd id="mediaSharePath">Loading...</dd></div>
+                <div><dt>Current folder</dt><dd id="mediaCurrentPath">/</dd></div>
+              </dl>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <h2>Selected media</h2>
+                <button id="clearMediaSelection" class="ghost-button" type="button">Clear</button>
+              </div>
+              <div id="mediaSelection" class="media-selection">Loading...</div>
+              <p id="mediaStatus" class="form-status" role="status"></p>
+            </article>
+
+            <article class="panel panel-wide">
+              <div class="panel-header">
+                <h2>Files</h2>
+              </div>
+              <div id="mediaBrowser" class="media-browser">Loading media library...</div>
+            </article>
+          </div>
+        </section>
+
         <section class="page" data-page="modules">
           <article class="panel panel-wide">
             <div class="panel-header">
@@ -158,54 +152,13 @@
         <section class="page" data-page="module-clock">
           <div class="grid module-settings-grid">
             <article class="panel panel-form">
-              <div class="panel-header">
-                <h2>Clock module</h2>
-              </div>
+              <div class="panel-header"><h2>Clock module</h2></div>
               <form id="clockSettingsForm">
-                <label>
-                  <span>Clock type</span>
-                  <select id="clockDisplayType" name="display_type">
-                    <option value="analog">Analog</option>
-                    <option value="digital">Digital</option>
-                  </select>
-                </label>
-                <label>
-                  <span>Hour mode</span>
-                  <select id="clockHourMode" name="hour_mode">
-                    <option value="12">12-hour</option>
-                    <option value="24">24-hour</option>
-                  </select>
-                </label>
-                <label>
-                  <span>Date format</span>
-                  <select id="clockDateFormat" name="date_format">
-                    <option value="dd/mm/yyyy">DD/MM/YYYY</option>
-                    <option value="mm/dd/yyyy">MM/DD/YYYY</option>
-                    <option value="yyyy-mm-dd">YYYY-MM-DD</option>
-                  </select>
-                </label>
-                <label>
-                  <span>Display size</span>
-                  <select id="clockDisplaySize" name="display_size">
-                    <option value="small">Small</option>
-                    <option value="medium">Medium</option>
-                    <option value="large">Large</option>
-                  </select>
-                </label>
-                <label>
-                  <span>Screen position</span>
-                  <select id="clockScreenPosition" name="screen_position">
-                    <option value="top-left">Top left</option>
-                    <option value="top-center">Top center</option>
-                    <option value="top-right">Top right</option>
-                    <option value="center-left">Center left</option>
-                    <option value="center">Center</option>
-                    <option value="center-right">Center right</option>
-                    <option value="bottom-left">Bottom left</option>
-                    <option value="bottom-center">Bottom center</option>
-                    <option value="bottom-right">Bottom right</option>
-                  </select>
-                </label>
+                <label><span>Clock type</span><select id="clockDisplayType" name="display_type"><option value="analog">Analog</option><option value="digital">Digital</option></select></label>
+                <label><span>Hour mode</span><select id="clockHourMode" name="hour_mode"><option value="12">12-hour</option><option value="24">24-hour</option></select></label>
+                <label><span>Date format</span><select id="clockDateFormat" name="date_format"><option value="dd/mm/yyyy">DD/MM/YYYY</option><option value="mm/dd/yyyy">MM/DD/YYYY</option><option value="yyyy-mm-dd">YYYY-MM-DD</option></select></label>
+                <label><span>Display size</span><select id="clockDisplaySize" name="display_size"><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></label>
+                <label><span>Screen position</span><select id="clockScreenPosition" name="screen_position"><option value="top-left">Top left</option><option value="top-center">Top center</option><option value="top-right">Top right</option><option value="center-left">Center left</option><option value="center">Center</option><option value="center-right">Center right</option><option value="bottom-left">Bottom left</option><option value="bottom-center">Bottom center</option><option value="bottom-right">Bottom right</option></select></label>
                 <div class="form-actions">
                   <button class="primary-button" type="submit">Save clock settings</button>
                   <p id="clockFormStatus" class="form-status" role="status"></p>
@@ -214,27 +167,13 @@
             </article>
 
             <article class="panel panel-emphasis clock-preview-panel">
-              <div class="panel-header">
-                <h2>Preview summary</h2>
-              </div>
+              <div class="panel-header"><h2>Preview summary</h2></div>
               <p id="clockPreviewTitle" class="status-copy">Digital clock preview</p>
               <dl class="metric-list clock-metric-list">
-                <div>
-                  <dt>Time mode</dt>
-                  <dd id="clockPreviewHourMode">24-hour</dd>
-                </div>
-                <div>
-                  <dt>Date format</dt>
-                  <dd id="clockPreviewDateFormat">DD/MM/YYYY</dd>
-                </div>
-                <div>
-                  <dt>Size</dt>
-                  <dd id="clockPreviewSize">Large</dd>
-                </div>
-                <div>
-                  <dt>Position</dt>
-                  <dd id="clockPreviewPosition">Center</dd>
-                </div>
+                <div><dt>Time mode</dt><dd id="clockPreviewHourMode">24-hour</dd></div>
+                <div><dt>Date format</dt><dd id="clockPreviewDateFormat">DD/MM/YYYY</dd></div>
+                <div><dt>Size</dt><dd id="clockPreviewSize">Large</dd></div>
+                <div><dt>Position</dt><dd id="clockPreviewPosition">Center</dd></div>
               </dl>
             </article>
           </div>

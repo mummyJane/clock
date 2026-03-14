@@ -20,13 +20,22 @@ const clockSettingsFormEl = document.getElementById("clockSettingsForm");
 const clockFormStatusEl = document.getElementById("clockFormStatus");
 const rebootButtonEl = document.getElementById("rebootButton");
 const haltButtonEl = document.getElementById("haltButton");
+const mediaSharePathEl = document.getElementById("mediaSharePath");
+const mediaCurrentPathEl = document.getElementById("mediaCurrentPath");
+const mediaSelectionEl = document.getElementById("mediaSelection");
+const mediaBrowserEl = document.getElementById("mediaBrowser");
+const mediaStatusEl = document.getElementById("mediaStatus");
+const clearMediaSelectionEl = document.getElementById("clearMediaSelection");
 
 const basePages = [
   { id: "overview", label: "Overview" },
+  { id: "media", label: "Media" },
   { id: "modules", label: "Modules" },
 ];
 
 let moduleState = { modules: {} };
+let mediaState = { selected_file: "", selected_kind: "none", playback_state: "stopped" };
+let currentMediaPath = "";
 
 async function getJson(path, options) {
   const response = await fetch(path, options);
@@ -156,20 +165,16 @@ function renderSystemHealth(systemStatus) {
   cpuTemperatureEl.textContent = formatTemperature(systemStatus.temperature);
   batteryVoltageEl.textContent = formatBattery(systemStatus.battery);
   mountCountEl.textContent = String(systemStatus.mount_count ?? mounts.length ?? 0);
-  diskSummaryEl.textContent = mostUsedMount
-    ? `${mostUsedMount.mount_point} at ${mostUsedMount.percent_used}%`
-    : "No mount data";
+  diskSummaryEl.textContent = mostUsedMount ? `${mostUsedMount.mount_point} at ${mostUsedMount.percent_used}%` : "No mount data";
   renderMounts(mounts);
 }
 
-function renderSystemState(systemState) {
-  hostnameEl.textContent = systemState.hostname || "Unknown";
-  ipAddressesEl.textContent = (systemState.ip_addresses || []).join(", ") || "No IPv4 address detected";
-  installedReleaseEl.textContent = systemState.release.release || "Unknown";
-  updatedAtEl.textContent = systemState.release.updated_at || "Unknown";
-  renderUpdateStatus(systemState.update_status);
-  setSettingsForm(systemState.settings);
-  renderModules(systemState.modules || moduleState);
+function renderSystemHealthError(message) {
+  cpuTemperatureEl.textContent = "Unavailable";
+  batteryVoltageEl.textContent = "Unavailable";
+  mountCountEl.textContent = "0";
+  diskSummaryEl.textContent = "Unavailable";
+  mountStatusEl.innerHTML = `<p class="support-copy">${escapeHtml(message)}</p>`;
 }
 
 function renderUpdateStatus(updateStatus) {
@@ -192,22 +197,102 @@ function renderUpdateStatus(updateStatus) {
   updateDetailsEl.textContent = details.join(" | ");
 }
 
+function renderMediaState(state) {
+  mediaState = state || mediaState;
+  if (!mediaState.selected_file) {
+    mediaSelectionEl.innerHTML = '<p class="support-copy">No media file selected. Add files through the Samba share and choose one here.</p>';
+    clearMediaSelectionEl.disabled = true;
+    return;
+  }
+
+  mediaSelectionEl.innerHTML = `
+    <article class="media-selection-card">
+      <h3>${escapeHtml(mediaState.selected_file.split("/").pop())}</h3>
+      <p>${escapeHtml(mediaState.selected_kind || "unknown")} | ${escapeHtml(mediaState.playback_state || "stopped")}</p>
+      <p class="support-copy">Selected path: ${escapeHtml(mediaState.selected_file)}</p>
+    </article>
+  `;
+  clearMediaSelectionEl.disabled = false;
+}
+
+function renderMediaBrowser(listing) {
+  currentMediaPath = listing.current_path || "";
+  mediaSharePathEl.textContent = listing.share_path || "Unknown";
+  mediaCurrentPathEl.textContent = currentMediaPath || "/";
+
+  const parentButton = currentMediaPath
+    ? `<button class="ghost-button" type="button" data-media-path="${escapeHtml(listing.parent_path || "")}">Open parent</button>`
+    : "";
+
+  const entries = listing.entries || [];
+  if (!entries.length) {
+    mediaBrowserEl.innerHTML = `${parentButton}<p class="support-copy">No media files found in this folder yet.</p>`;
+    return;
+  }
+
+  mediaBrowserEl.innerHTML = `
+    ${parentButton}
+    <div class="media-entry-list">
+      ${entries.map((entry) => {
+        if (entry.type === "directory") {
+          return `
+            <article class="media-entry-card">
+              <div>
+                <h3>${escapeHtml(entry.name)}</h3>
+                <p>Folder</p>
+              </div>
+              <button class="primary-button" type="button" data-media-path="${escapeHtml(entry.relative_path)}">Open</button>
+            </article>
+          `;
+        }
+
+        const actionButton = entry.selectable
+          ? `<button class="primary-button" type="button" data-select-media="${escapeHtml(entry.relative_path)}">Select</button>`
+          : `<span class="media-entry-note">Unsupported</span>`;
+        return `
+          <article class="media-entry-card">
+            <div>
+              <h3>${escapeHtml(entry.name)}</h3>
+              <p>${escapeHtml(entry.kind)} | ${entry.size_bytes || 0} bytes</p>
+            </div>
+            ${actionButton}
+          </article>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderSystemState(systemState) {
+  hostnameEl.textContent = systemState.hostname || "Unknown";
+  ipAddressesEl.textContent = (systemState.ip_addresses || []).join(", ") || "No IPv4 address detected";
+  installedReleaseEl.textContent = systemState.release.release || "Unknown";
+  updatedAtEl.textContent = systemState.release.updated_at || "Unknown";
+  renderUpdateStatus(systemState.update_status || {});
+  setSettingsForm(systemState.settings || {});
+  renderModules(systemState.modules || moduleState);
+  renderMediaState(systemState.media_state || mediaState);
+}
+
 async function loadSystemState() {
   const state = await getJson("/api/system");
   renderSystemState(state);
 }
 
-function renderSystemHealthError(message) {
-  cpuTemperatureEl.textContent = "Unavailable";
-  batteryVoltageEl.textContent = "Unavailable";
-  mountCountEl.textContent = "0";
-  diskSummaryEl.textContent = "Unavailable";
-  mountStatusEl.innerHTML = `<p class="support-copy">${escapeHtml(message)}</p>`;
-}
-
 async function loadSystemStatus() {
   const status = await getJson("/api/system-status");
   renderSystemHealth(status);
+}
+
+async function loadMediaBrowser(path = currentMediaPath) {
+  const query = path ? `?path=${encodeURIComponent(path)}` : "";
+  const listing = await getJson(`/api/media/files${query}`);
+  renderMediaBrowser(listing);
+}
+
+async function loadMediaState() {
+  const state = await getJson("/api/media/state");
+  renderMediaState(state);
 }
 
 async function refreshOverview() {
@@ -223,9 +308,7 @@ async function checkUpdateStatus() {
   updateMessageEl.textContent = "Checking repository for updates...";
   const status = await getJson("/api/update-status/check", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({}),
   });
   renderUpdateStatus(status);
@@ -234,10 +317,7 @@ async function checkUpdateStatus() {
 function getEnabledModulePages(modulesPayload) {
   return Object.entries(modulesPayload.modules || {})
     .filter(([, module]) => module.enabled)
-    .map(([moduleId, module]) => ({
-      id: `module-${moduleId}`,
-      label: module.title || moduleId,
-    }));
+    .map(([moduleId, module]) => ({ id: `module-${moduleId}`, label: module.title || moduleId }));
 }
 
 function getCurrentPageId() {
@@ -246,10 +326,7 @@ function getCurrentPageId() {
 }
 
 function ensureVisiblePage() {
-  const availablePageIds = new Set([
-    ...basePages.map((page) => page.id),
-    ...getEnabledModulePages(moduleState).map((page) => page.id),
-  ]);
+  const availablePageIds = new Set([...basePages.map((page) => page.id), ...getEnabledModulePages(moduleState).map((page) => page.id)]);
   const currentPageId = getCurrentPageId();
   if (!availablePageIds.has(currentPageId)) {
     window.location.hash = "#overview";
@@ -270,8 +347,7 @@ function renderPageNav() {
 function renderPages() {
   const currentPageId = getCurrentPageId();
   document.querySelectorAll(".page").forEach((pageEl) => {
-    const isActive = pageEl.dataset.page === currentPageId;
-    pageEl.classList.toggle("is-active", isActive);
+    pageEl.classList.toggle("is-active", pageEl.dataset.page === currentPageId);
   });
 }
 
@@ -306,9 +382,7 @@ async function loadModules() {
 async function saveModules() {
   const saved = await getJson("/api/modules", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(moduleState),
   });
   renderModules(saved);
@@ -373,9 +447,7 @@ async function saveSettings(event) {
   try {
     const saved = await getJson("/api/settings", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
     setSettingsForm(saved);
@@ -396,14 +468,42 @@ async function requestPowerAction(action) {
   try {
     const result = await getJson(`/api/actions/${action}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
     });
     powerActionStatusEl.textContent = result.message || `${titleCase(action)} requested.`;
   } catch (error) {
     powerActionStatusEl.textContent = error.message;
+  }
+}
+
+async function selectMedia(relativePath) {
+  mediaStatusEl.textContent = "Selecting media...";
+  try {
+    const state = await getJson("/api/media/select", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ relative_path: relativePath }),
+    });
+    renderMediaState(state);
+    mediaStatusEl.textContent = "Media selected for bedside playback.";
+  } catch (error) {
+    mediaStatusEl.textContent = error.message;
+  }
+}
+
+async function sendMediaAction(action) {
+  mediaStatusEl.textContent = action === "clear" ? "Clearing selected media..." : `Sending ${action}...`;
+  try {
+    const state = await getJson("/api/media/action", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    renderMediaState(state);
+    mediaStatusEl.textContent = action === "clear" ? "Selected media cleared." : `Media ${action} request saved.`;
+  } catch (error) {
+    mediaStatusEl.textContent = error.message;
   }
 }
 
@@ -425,6 +525,25 @@ rebootButtonEl.addEventListener("click", () => {
 
 haltButtonEl.addEventListener("click", () => {
   requestPowerAction("halt");
+});
+
+clearMediaSelectionEl.addEventListener("click", () => {
+  sendMediaAction("clear");
+});
+
+mediaBrowserEl.addEventListener("click", (event) => {
+  const pathButton = event.target.closest("[data-media-path]");
+  if (pathButton) {
+    loadMediaBrowser(pathButton.dataset.mediaPath).catch((error) => {
+      mediaStatusEl.textContent = error.message;
+    });
+    return;
+  }
+
+  const selectButton = event.target.closest("[data-select-media]");
+  if (selectButton) {
+    selectMedia(selectButton.dataset.selectMedia);
+  }
 });
 
 modulesListEl.addEventListener("change", (event) => {
@@ -457,11 +576,6 @@ formEl.addEventListener("submit", (event) => {
   saveSettings(event);
 });
 
-refreshOverview().catch((error) => {
+Promise.all([refreshOverview(), loadModules(), loadMediaBrowser(""), loadMediaState()]).catch((error) => {
   formStatusEl.textContent = error.message;
 });
-
-loadModules().catch((error) => {
-  moduleStatusEl.textContent = error.message;
-});
-

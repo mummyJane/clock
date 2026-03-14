@@ -69,6 +69,7 @@
 - start, pause, stop play back button on screen
 - buttons only display once the display is touch
 - buttons auto hide after n seconds
+- status: done 2026-03-14
 
 ## Task 11
 - Alarm module
@@ -84,3 +85,10 @@
 
 ## task 12
 - do release 0.3.0
+
+## task 13
+- mount USB drivers
+- mount nvme driver (PCIe)
+    - setup
+    - 1 or 2 nvme drivers
+- mount NAS (synology)

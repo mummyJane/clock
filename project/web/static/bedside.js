@@ -1,9 +1,21 @@
+const bedsideShellEl = document.getElementById("bedsideShell");
 const bedsideModulesEl = document.getElementById("bedsideModules");
+const mediaStageEl = document.getElementById("mediaStage");
+const mediaControlsEl = document.getElementById("mediaControls");
+const mediaPlayEl = document.getElementById("mediaPlay");
+const mediaPauseEl = document.getElementById("mediaPause");
+const mediaStopEl = document.getElementById("mediaStop");
+const mediaClearEl = document.getElementById("mediaClear");
+
+const CONTROL_HIDE_DELAY_MS = 4000;
 
 let currentState = null;
+let currentMediaState = { selected_file: "", selected_kind: "none", playback_state: "stopped" };
+let currentMediaUrl = "";
+let controlsTimer = null;
 
-async function getJson(path) {
-  const response = await fetch(path);
+async function getJson(path, options) {
+  const response = await fetch(path, options);
   const payload = await response.json();
   if (!response.ok) {
     throw new Error(payload.error || "Request failed.");
@@ -88,6 +100,93 @@ function renderClockModule(module, timezone) {
   `;
 }
 
+function showControls() {
+  if (!currentMediaState.selected_file) {
+    return;
+  }
+  mediaControlsEl.classList.remove("is-hidden");
+  if (controlsTimer) {
+    window.clearTimeout(controlsTimer);
+  }
+  controlsTimer = window.setTimeout(() => {
+    mediaControlsEl.classList.add("is-hidden");
+  }, CONTROL_HIDE_DELAY_MS);
+}
+
+function setMediaControlState() {
+  const hasSelection = Boolean(currentMediaState.selected_file);
+  mediaPlayEl.disabled = !hasSelection || currentMediaState.selected_kind === "image" || currentMediaState.playback_state === "playing";
+  mediaPauseEl.disabled = !hasSelection || currentMediaState.selected_kind === "image" || currentMediaState.playback_state !== "playing";
+  mediaStopEl.disabled = !hasSelection;
+  mediaClearEl.disabled = !hasSelection;
+}
+
+function mediaUrlForState() {
+  if (!currentMediaState.selected_file) {
+    return "";
+  }
+  return `/media/${currentMediaState.selected_file.split("/").map(encodeURIComponent).join("/")}?t=${encodeURIComponent(currentMediaState.updated_at || "")}`;
+}
+
+function syncMediaElementPlayback() {
+  const mediaElement = mediaStageEl.querySelector("audio, video");
+  if (!mediaElement) {
+    return;
+  }
+
+  if (currentMediaState.playback_state === "playing") {
+    mediaElement.play().catch(() => {});
+    return;
+  }
+
+  mediaElement.pause();
+  if (currentMediaState.playback_state === "stopped") {
+    mediaElement.currentTime = 0;
+  }
+}
+
+function renderMediaStage() {
+  setMediaControlState();
+  if (!currentMediaState.selected_file) {
+    mediaStageEl.className = "media-stage is-hidden";
+    mediaStageEl.innerHTML = "";
+    bedsideModulesEl.classList.remove("is-hidden");
+    mediaControlsEl.classList.add("is-hidden");
+    currentMediaUrl = "";
+    return;
+  }
+
+  const nextUrl = mediaUrlForState();
+  const fileName = currentMediaState.selected_file.split("/").pop();
+  bedsideModulesEl.classList.add("is-hidden");
+  mediaStageEl.className = `media-stage kind-${currentMediaState.selected_kind}`;
+
+  if (currentMediaState.selected_kind === "image") {
+    mediaStageEl.innerHTML = `<img class="media-image" src="${nextUrl}" alt="${fileName}">`;
+  } else if (currentMediaState.selected_kind === "audio") {
+    mediaStageEl.innerHTML = `
+      <section class="media-audio-card">
+        <p class="clock-label">Now playing</p>
+        <h1>${fileName}</h1>
+        <p>Touch the screen to show playback controls.</p>
+        <audio id="bedsideMediaElement" src="${nextUrl}" preload="auto"></audio>
+      </section>
+    `;
+  } else {
+    mediaStageEl.innerHTML = `<video id="bedsideMediaElement" class="media-video" src="${nextUrl}" playsinline preload="auto"></video>`;
+  }
+
+  currentMediaUrl = nextUrl;
+  const mediaElement = mediaStageEl.querySelector("audio, video");
+  if (mediaElement) {
+    mediaElement.loop = false;
+    mediaElement.addEventListener("ended", () => {
+      sendMediaAction("stop").catch(() => {});
+    }, { once: true });
+    syncMediaElementPlayback();
+  }
+}
+
 function renderBedside() {
   if (!currentState) {
     return;
@@ -130,7 +229,31 @@ async function loadSystemState() {
   renderBedside();
 }
 
-loadSystemState().catch((error) => {
+async function loadMediaState() {
+  currentMediaState = await getJson("/api/media/state");
+  renderMediaStage();
+}
+
+async function sendMediaAction(action) {
+  currentMediaState = await getJson("/api/media/action", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action }),
+  });
+  renderMediaStage();
+  showControls();
+}
+
+bedsideShellEl.addEventListener("pointerdown", () => {
+  showControls();
+});
+
+mediaPlayEl.addEventListener("click", () => { sendMediaAction("play").catch(() => {}); });
+mediaPauseEl.addEventListener("click", () => { sendMediaAction("pause").catch(() => {}); });
+mediaStopEl.addEventListener("click", () => { sendMediaAction("stop").catch(() => {}); });
+mediaClearEl.addEventListener("click", () => { sendMediaAction("clear").catch(() => {}); });
+
+Promise.all([loadSystemState(), loadMediaState()]).catch((error) => {
   bedsideModulesEl.className = "bedside-modules position-center";
   bedsideModulesEl.innerHTML = `<section class="module-empty"><h1>Bedside mode unavailable</h1><p>${error.message}</p></section>`;
 });
@@ -142,7 +265,6 @@ window.setInterval(() => {
 }, 1000);
 
 window.setInterval(() => {
-  loadSystemState().catch(() => {
-    // Keep the last rendered state on transient fetch failures.
-  });
-}, 30000);
+  loadSystemState().catch(() => {});
+  loadMediaState().catch(() => {});
+}, 5000);
