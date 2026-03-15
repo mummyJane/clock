@@ -131,3 +131,8 @@
 - Tooling issue: apply_patch still fails in this Windows workspace with "windows sandbox: setup refresh failed with status exit code: 1", so the follow-up edits were written through PowerShell file writes again.
 - Follow-up fix: updated project/web/static/bedside.js so video decode errors persist across the bedside polling refresh instead of flashing briefly and disappearing.
 - Follow-up fix: updated project/web/static/bedside.html, project/web/static/bedside.js, and project/web/static/bedside.css to add a bedside volume control for audio and video playback and to keep bedside mode blank when all modules are disabled.
+- Follow-up fix: extended project/web/server.py with /media/current plus a temporary ffmpeg-backed transcode path for selected MP4, M4V, and MOV files, reusing the original file when ffmpeg is unavailable or transcoding fails.
+- Follow-up fix: updated project/web/static/bedside.html and project/web/static/bedside.js so bedside playback now has a boosted 0-300 volume range, stores the chosen volume locally, and resumes the audio context on touch to improve MP3 and low-audio playback.
+- Validation completed: python -m py_compile project/web/server.py.
+- Validation completed: node --check project/web/static/bedside.js.
+- Validation completed: ran a workspace-local Python smoke test to confirm MP4 selection resolves through a temporary .webm playback file and that clearing media removes the temp transcode file.

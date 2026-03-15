@@ -9,13 +9,45 @@ const mediaVolumeEl = document.getElementById("mediaVolume");
 const mediaClearEl = document.getElementById("mediaClear");
 
 const CONTROL_HIDE_DELAY_MS = 4000;
+const DEFAULT_MEDIA_VOLUME = 2;
+const MAX_MEDIA_VOLUME = 3;
+const VOLUME_STORAGE_KEY = "clock.media.volume";
 
 let currentState = null;
 let currentMediaState = { selected_file: "", selected_kind: "none", playback_state: "stopped" };
 let currentMediaKey = "";
 let currentMediaError = "";
-let currentVolume = 1;
+let currentVolume = loadStoredVolume();
 let controlsTimer = null;
+let audioContext = null;
+let currentConnectedElement = null;
+let mediaSourceNode = null;
+let mediaGainNode = null;
+
+function clampVolume(value) {
+  return Math.max(0, Math.min(MAX_MEDIA_VOLUME, value));
+}
+
+function loadStoredVolume() {
+  try {
+    const stored = window.localStorage.getItem(VOLUME_STORAGE_KEY);
+    if (!stored) {
+      return DEFAULT_MEDIA_VOLUME;
+    }
+    const parsed = Number(stored);
+    return Number.isFinite(parsed) ? clampVolume(parsed) : DEFAULT_MEDIA_VOLUME;
+  } catch {
+    return DEFAULT_MEDIA_VOLUME;
+  }
+}
+
+function saveStoredVolume() {
+  try {
+    window.localStorage.setItem(VOLUME_STORAGE_KEY, String(currentVolume));
+  } catch {
+    // Ignore storage failures in kiosk mode.
+  }
+}
 
 async function getJson(path, options) {
   const response = await fetch(path, options);
@@ -130,11 +162,58 @@ function mediaUrlForState() {
   if (!currentMediaState.selected_file) {
     return "";
   }
-  return `/media/${currentMediaState.selected_file.split("/").map(encodeURIComponent).join("/")}`;
+  const selectionKey = encodeURIComponent(`${currentMediaState.selected_kind}:${currentMediaState.selected_file}`);
+  return `/media/current?key=${selectionKey}`;
 }
 
 function syncVolumeControl() {
   mediaVolumeEl.value = String(Math.round(currentVolume * 100));
+}
+
+function ensureAudioContext() {
+  if (audioContext) {
+    return audioContext;
+  }
+  const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextCtor) {
+    return null;
+  }
+  try {
+    audioContext = new AudioContextCtor();
+  } catch {
+    audioContext = null;
+  }
+  return audioContext;
+}
+
+function connectMediaAudio(mediaElement) {
+  const context = ensureAudioContext();
+  if (!context) {
+    currentConnectedElement = null;
+    mediaSourceNode = null;
+    mediaGainNode = null;
+    return;
+  }
+  if (currentConnectedElement === mediaElement && mediaGainNode) {
+    mediaGainNode.gain.value = currentVolume;
+    return;
+  }
+  if (mediaSourceNode) {
+    try {
+      mediaSourceNode.disconnect();
+    } catch {}
+  }
+  if (mediaGainNode) {
+    try {
+      mediaGainNode.disconnect();
+    } catch {}
+  }
+  mediaSourceNode = context.createMediaElementSource(mediaElement);
+  mediaGainNode = context.createGain();
+  mediaSourceNode.connect(mediaGainNode);
+  mediaGainNode.connect(context.destination);
+  currentConnectedElement = mediaElement;
+  mediaGainNode.gain.value = currentVolume;
 }
 
 function applyMediaVolume() {
@@ -142,7 +221,29 @@ function applyMediaVolume() {
   if (!mediaElement) {
     return;
   }
-  mediaElement.volume = currentVolume;
+  connectMediaAudio(mediaElement);
+  if (mediaGainNode) {
+    mediaElement.volume = 1;
+    mediaGainNode.gain.value = currentVolume;
+    return;
+  }
+  mediaElement.volume = Math.min(currentVolume, 1);
+}
+
+async function resumeMediaPlayback() {
+  const context = ensureAudioContext();
+  if (context && context.state === "suspended") {
+    try {
+      await context.resume();
+    } catch {
+      // Ignore resume failures and let the element attempt playback directly.
+    }
+  }
+  applyMediaVolume();
+  const mediaElement = mediaStageEl.querySelector("audio, video");
+  if (mediaElement && currentMediaState.playback_state === "playing") {
+    mediaElement.play().catch(() => {});
+  }
 }
 
 function syncMediaElementPlayback() {
@@ -174,16 +275,20 @@ function applyMediaError() {
 
 function attachMediaHandlers(mediaElement) {
   mediaElement.loop = false;
-  mediaElement.volume = currentVolume;
+  applyMediaVolume();
   mediaElement.addEventListener("ended", () => {
     sendMediaAction("stop").catch(() => {});
   });
   mediaElement.addEventListener("error", () => {
     if (currentMediaState.selected_kind === "video") {
-      currentMediaError = "This video could not be played by the browser. If the on-screen message mentions AAC, re-encode the MP4 to H.264 video with AAC-LC audio, or use WebM.";
+      currentMediaError = "This video could not be played directly by the browser. The server will try a temporary WebM transcode for MP4, M4V, or MOV files. If audio is still missing, touch the screen once to resume playback.";
       applyMediaError();
       showControls();
     }
+  });
+  mediaElement.addEventListener("canplay", () => {
+    currentMediaError = "";
+    applyMediaError();
   });
 }
 
@@ -198,6 +303,9 @@ function renderMediaStage() {
     delete mediaStageEl.dataset.mediaError;
     bedsideShellEl.classList.remove("has-media");
     mediaControlsEl.classList.add("is-hidden");
+    currentConnectedElement = null;
+    mediaSourceNode = null;
+    mediaGainNode = null;
     currentMediaKey = "";
     return;
   }
@@ -213,6 +321,9 @@ function renderMediaStage() {
 
   if (currentMediaKey !== nextMediaKey) {
     currentMediaError = "";
+    currentConnectedElement = null;
+    mediaSourceNode = null;
+    mediaGainNode = null;
   }
 
   if (shouldRebuild) {
@@ -298,18 +409,22 @@ async function sendMediaAction(action) {
   renderMediaStage();
   renderBedside();
   showControls();
+  resumeMediaPlayback().catch(() => {});
 }
 
 bedsideShellEl.addEventListener("pointerdown", () => {
   showControls();
+  resumeMediaPlayback().catch(() => {});
 });
 
 mediaPlayEl.addEventListener("click", () => { sendMediaAction("play").catch(() => {}); });
 mediaPauseEl.addEventListener("click", () => { sendMediaAction("pause").catch(() => {}); });
 mediaStopEl.addEventListener("click", () => { sendMediaAction("stop").catch(() => {}); });
 mediaVolumeEl.addEventListener("input", () => {
-  currentVolume = Number(mediaVolumeEl.value) / 100;
+  currentVolume = clampVolume(Number(mediaVolumeEl.value) / 100);
+  saveStoredVolume();
   applyMediaVolume();
+  resumeMediaPlayback().catch(() => {});
   showControls();
 });
 mediaClearEl.addEventListener("click", () => { sendMediaAction("clear").catch(() => {}); });

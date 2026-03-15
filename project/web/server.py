@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import mimetypes
 import os
@@ -25,6 +26,8 @@ UPDATE_STATUS_PATH = Path(os.environ.get("CLOCK_UPDATE_FILE", DEFAULT_DATA_ROOT 
 MODULES_PATH = Path(os.environ.get("CLOCK_MODULES_FILE", DEFAULT_DATA_ROOT / "modules.json"))
 MEDIA_STATE_PATH = Path(os.environ.get("CLOCK_MEDIA_STATE_FILE", DEFAULT_DATA_ROOT / "media-state.json"))
 MEDIA_ROOT = Path(os.environ.get("CLOCK_MEDIA_ROOT", DEFAULT_DATA_ROOT / "media"))
+MEDIA_TEMP_ROOT = Path(os.environ.get("CLOCK_MEDIA_TEMP_ROOT", DEFAULT_DATA_ROOT / "media-temp"))
+FFMPEG_BIN = os.environ.get("CLOCK_FFMPEG_BIN", "ffmpeg")
 POWER_ACTION_MODE = os.environ.get("CLOCK_POWER_ACTION_MODE", "live")
 THERMAL_PATH = Path("/sys/class/thermal/thermal_zone0/temp")
 POWER_SUPPLY_ROOT = Path("/sys/class/power_supply")
@@ -52,6 +55,7 @@ MOUNT_EXCLUDE_TYPES = {
     "tracefs",
 }
 MEDIA_FILE_KINDS = {"image", "audio", "video"}
+TRANSCODE_VIDEO_SUFFIXES = {".mp4", ".m4v", ".mov"}
 MEDIA_CONTENT_TYPES = {
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
@@ -309,6 +313,86 @@ def resolve_media_path(relative_path: str) -> Path:
     return candidate
 
 
+def media_requires_transcode(file_path: Path) -> bool:
+    return media_kind_for_name(file_path.name) == "video" and file_path.suffix.lower() in TRANSCODE_VIDEO_SUFFIXES
+
+
+def cleanup_media_temp_files(exclude: set[Path] | None = None) -> None:
+    exclusions = {path.resolve() for path in (exclude or set())}
+    if not MEDIA_TEMP_ROOT.exists():
+        return
+    for child in MEDIA_TEMP_ROOT.iterdir():
+        try:
+            resolved = child.resolve()
+        except OSError:
+            resolved = child
+        if resolved in exclusions:
+            continue
+        try:
+            if child.is_dir():
+                shutil.rmtree(child)
+            else:
+                child.unlink()
+        except OSError:
+            continue
+
+
+def transcoded_media_path_for(file_path: Path) -> Path:
+    stat = file_path.stat()
+    digest_source = f"{file_path.resolve()}:{stat.st_mtime_ns}:{stat.st_size}"
+    digest = hashlib.sha256(digest_source.encode("utf-8")).hexdigest()[:12]
+    safe_stem = "".join(character if character.isalnum() else "-" for character in file_path.stem).strip("-") or "media"
+    return MEDIA_TEMP_ROOT / f"{safe_stem}-{digest}.webm"
+
+
+def ensure_transcoded_media(file_path: Path) -> Path:
+    MEDIA_TEMP_ROOT.mkdir(parents=True, exist_ok=True)
+    output_path = transcoded_media_path_for(file_path)
+    cleanup_media_temp_files({output_path})
+    if output_path.exists() and output_path.stat().st_size > 0:
+        return output_path
+
+    command = [
+        FFMPEG_BIN,
+        "-y",
+        "-i",
+        str(file_path),
+        "-c:v",
+        "libvpx-vp9",
+        "-c:a",
+        "libopus",
+        "-deadline",
+        "realtime",
+        "-cpu-used",
+        "4",
+        str(output_path),
+    ]
+    try:
+        subprocess.run(command, check=True, capture_output=True, text=True)
+    except FileNotFoundError:
+        return file_path
+    except subprocess.CalledProcessError:
+        try:
+            output_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return file_path
+    return output_path
+
+
+def resolve_current_media_playback_path() -> Path:
+    state = load_media_state()
+    selected_file = str(state.get("selected_file", "")).strip()
+    if not selected_file:
+        raise ValueError("No media file is selected.")
+
+    source_path = resolve_media_path(selected_file)
+    if media_requires_transcode(source_path):
+        return ensure_transcoded_media(source_path)
+    cleanup_media_temp_files()
+    return source_path
+
+
 def list_media_entries(relative_path: str = "") -> dict[str, Any]:
     directory = resolve_media_path(relative_path)
     if not directory.exists():
@@ -379,6 +463,7 @@ def select_media_file(relative_path: str) -> dict[str, Any]:
     if kind not in MEDIA_FILE_KINDS:
         raise ValueError("Selected file is not a supported image, audio, or video file.")
 
+    cleanup_media_temp_files()
     return save_media_state(
         {
             "selected_file": cleaned,
@@ -395,6 +480,7 @@ def change_media_playback(action: str) -> dict[str, Any]:
 
     state = load_media_state()
     if action == "clear":
+        cleanup_media_temp_files()
         return save_media_state(
             {
                 "selected_file": "",
@@ -716,6 +802,9 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/media/state":
             self.send_json(load_media_state())
             return
+        if parsed.path == "/media/current":
+            self.serve_current_media()
+            return
         if parsed.path.startswith("/media/"):
             self.serve_media(parsed.path.removeprefix("/media/"))
             return
@@ -847,6 +936,17 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
             return
         self.serve_file(file_path)
 
+    def serve_current_media(self) -> None:
+        try:
+            file_path = resolve_current_media_playback_path()
+        except ValueError:
+            self.send_error(HTTPStatus.NOT_FOUND, "File not found.")
+            return
+        if not file_path.exists() or not file_path.is_file():
+            self.send_error(HTTPStatus.NOT_FOUND, "File not found.")
+            return
+        self.serve_file(file_path)
+
     def serve_file(self, file_path: Path) -> None:
         content_type = media_content_type_for_name(file_path.name) or "application/octet-stream"
         file_size = file_path.stat().st_size
@@ -909,6 +1009,7 @@ def main() -> None:
     ensure_parent(MODULES_PATH)
     ensure_parent(MEDIA_STATE_PATH)
     MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+    MEDIA_TEMP_ROOT.mkdir(parents=True, exist_ok=True)
     server = ThreadingHTTPServer(("0.0.0.0", port), ClockRequestHandler)
     print(f"Clock setup server listening on http://0.0.0.0:{port}")
     server.serve_forever()

@@ -35,3 +35,6 @@
 - Surface a bedside video decode hint in the UI rather than silently failing, because some MP4 files will remain unplayable on Pi Chromium when the file codec is unsupported even if the server sends the correct video/mp4 content type.
 - Persist the last bedside video decode error in the browser state for the current media selection, because the periodic state refresh would otherwise erase the error before the user could read it.
 - Keep the first bedside volume control client-side in the browser rather than persisting it in server state, because this fixes the immediate low-audio issue without extending the backend media schema yet.
+- Route bedside playback through /media/current so the server can swap in a temporary transcoded file without changing the persisted selected media path or forcing the setup UI to know about playback artifacts.
+- Use ffmpeg as a best-effort local transcode helper for MP4, M4V, and MOV playback, falling back to the source file when ffmpeg is missing or a transcode fails so playback degrades gracefully instead of breaking media selection entirely.
+- Use a Web Audio API gain node with a 0-300 bedside volume range because the native HTML media element volume cap of 1.0 is not enough for the current speaker output level.

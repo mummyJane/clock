@@ -36,3 +36,5 @@
 - Runtime follow-up: bedside video playback now surfaces an on-screen error hint when Chromium cannot decode a selected video, with guidance to prefer H.264 or AAC MP4 files or WebM on the Pi.
 - Runtime follow-up: the bedside page refresh loop was clearing video decode errors every five seconds, so decode failures now stay visible for the currently selected file until the selection changes or is cleared.
 - Runtime follow-up: bedside mode now includes a local volume slider for audio and video playback, and the bedside surface now stays blank when no modules are enabled instead of showing a placeholder card.
+- Runtime follow-up: video playback now routes bedside media through /media/current so the server can create a temporary WebM transcode for selected MP4, M4V, or MOV files and clean that temp file up when the selection is cleared or changed.
+- Runtime follow-up: bedside audio now uses a browser-side gain stage with persisted local volume, and touch interaction resumes the media audio path so quiet or previously blocked audio playback is more reliable for audio and video files.
