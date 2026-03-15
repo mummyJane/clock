@@ -34,3 +34,4 @@
 - Add explicit extension-to-content-type fallbacks in project/web/server.py for common media formats instead of relying only on the host mime database, because Raspberry Pi and minimal Linux installs can vary in what mimetypes.guess_type() returns.
 - Surface a bedside video decode hint in the UI rather than silently failing, because some MP4 files will remain unplayable on Pi Chromium when the file codec is unsupported even if the server sends the correct video/mp4 content type.
 - Persist the last bedside video decode error in the browser state for the current media selection, because the periodic state refresh would otherwise erase the error before the user could read it.
+- Keep the first bedside volume control client-side in the browser rather than persisting it in server state, because this fixes the immediate low-audio issue without extending the backend media schema yet.

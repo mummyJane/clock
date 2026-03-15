@@ -5,6 +5,7 @@ const mediaControlsEl = document.getElementById("mediaControls");
 const mediaPlayEl = document.getElementById("mediaPlay");
 const mediaPauseEl = document.getElementById("mediaPause");
 const mediaStopEl = document.getElementById("mediaStop");
+const mediaVolumeEl = document.getElementById("mediaVolume");
 const mediaClearEl = document.getElementById("mediaClear");
 
 const CONTROL_HIDE_DELAY_MS = 4000;
@@ -13,6 +14,7 @@ let currentState = null;
 let currentMediaState = { selected_file: "", selected_kind: "none", playback_state: "stopped" };
 let currentMediaKey = "";
 let currentMediaError = "";
+let currentVolume = 1;
 let controlsTimer = null;
 
 async function getJson(path, options) {
@@ -116,9 +118,11 @@ function showControls() {
 
 function setMediaControlState() {
   const hasSelection = Boolean(currentMediaState.selected_file);
-  mediaPlayEl.disabled = !hasSelection || currentMediaState.selected_kind === "image" || currentMediaState.playback_state === "playing";
-  mediaPauseEl.disabled = !hasSelection || currentMediaState.selected_kind === "image" || currentMediaState.playback_state !== "playing";
+  const canAdjustPlayback = hasSelection && currentMediaState.selected_kind !== "image";
+  mediaPlayEl.disabled = !canAdjustPlayback || currentMediaState.playback_state === "playing";
+  mediaPauseEl.disabled = !canAdjustPlayback || currentMediaState.playback_state !== "playing";
   mediaStopEl.disabled = !hasSelection;
+  mediaVolumeEl.disabled = !canAdjustPlayback;
   mediaClearEl.disabled = !hasSelection;
 }
 
@@ -129,11 +133,25 @@ function mediaUrlForState() {
   return `/media/${currentMediaState.selected_file.split("/").map(encodeURIComponent).join("/")}`;
 }
 
+function syncVolumeControl() {
+  mediaVolumeEl.value = String(Math.round(currentVolume * 100));
+}
+
+function applyMediaVolume() {
+  const mediaElement = mediaStageEl.querySelector("audio, video");
+  if (!mediaElement) {
+    return;
+  }
+  mediaElement.volume = currentVolume;
+}
+
 function syncMediaElementPlayback() {
   const mediaElement = mediaStageEl.querySelector("audio, video");
   if (!mediaElement) {
     return;
   }
+
+  applyMediaVolume();
 
   if (currentMediaState.playback_state === "playing") {
     mediaElement.play().catch(() => {});
@@ -156,6 +174,7 @@ function applyMediaError() {
 
 function attachMediaHandlers(mediaElement) {
   mediaElement.loop = false;
+  mediaElement.volume = currentVolume;
   mediaElement.addEventListener("ended", () => {
     sendMediaAction("stop").catch(() => {});
   });
@@ -170,13 +189,14 @@ function attachMediaHandlers(mediaElement) {
 
 function renderMediaStage() {
   setMediaControlState();
+  syncVolumeControl();
+
   if (!currentMediaState.selected_file) {
     mediaStageEl.className = "media-stage is-hidden";
     mediaStageEl.innerHTML = "";
     currentMediaError = "";
     delete mediaStageEl.dataset.mediaError;
     bedsideShellEl.classList.remove("has-media");
-    bedsideModulesEl.classList.remove("is-hidden");
     mediaControlsEl.classList.add("is-hidden");
     currentMediaKey = "";
     return;
@@ -219,6 +239,7 @@ function renderMediaStage() {
   }
 
   applyMediaError();
+  applyMediaVolume();
   syncMediaElementPlayback();
 }
 
@@ -233,12 +254,10 @@ function renderBedside() {
 
   if (enabledModules.length === 0) {
     bedsideModulesEl.className = "bedside-modules position-center";
-    bedsideModulesEl.innerHTML = `
-      <section class="module-empty">
-        <h1>No modules enabled</h1>
-        <p>Open the setup interface and enable at least one module to show it here in bedside mode.</p>
-      </section>
-    `;
+    bedsideModulesEl.innerHTML = "";
+    if (!currentMediaState.selected_file) {
+      bedsideModulesEl.classList.remove("is-hidden");
+    }
     return;
   }
 
@@ -267,6 +286,7 @@ async function loadSystemState() {
 async function loadMediaState() {
   currentMediaState = await getJson("/api/media/state");
   renderMediaStage();
+  renderBedside();
 }
 
 async function sendMediaAction(action) {
@@ -276,6 +296,7 @@ async function sendMediaAction(action) {
     body: JSON.stringify({ action }),
   });
   renderMediaStage();
+  renderBedside();
   showControls();
 }
 
@@ -286,6 +307,11 @@ bedsideShellEl.addEventListener("pointerdown", () => {
 mediaPlayEl.addEventListener("click", () => { sendMediaAction("play").catch(() => {}); });
 mediaPauseEl.addEventListener("click", () => { sendMediaAction("pause").catch(() => {}); });
 mediaStopEl.addEventListener("click", () => { sendMediaAction("stop").catch(() => {}); });
+mediaVolumeEl.addEventListener("input", () => {
+  currentVolume = Number(mediaVolumeEl.value) / 100;
+  applyMediaVolume();
+  showControls();
+});
 mediaClearEl.addEventListener("click", () => { sendMediaAction("clear").catch(() => {}); });
 
 Promise.all([loadSystemState(), loadMediaState()]).catch((error) => {
