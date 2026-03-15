@@ -34,3 +34,4 @@
 - Runtime follow-up: bedside image and video media now switches the shell into a true full-screen media mode so selected media uses the display area instead of inheriting the module-page padding.
 - Runtime follow-up: media content type detection now includes explicit extension fallbacks for common audio, video, and image formats so .mp4 and related files are still classified and served correctly when platform mime mappings are incomplete.
 - Runtime follow-up: bedside video playback now surfaces an on-screen error hint when Chromium cannot decode a selected video, with guidance to prefer H.264 or AAC MP4 files or WebM on the Pi.
+- Runtime follow-up: the bedside page refresh loop was clearing video decode errors every five seconds, so decode failures now stay visible for the currently selected file until the selection changes or is cleared.

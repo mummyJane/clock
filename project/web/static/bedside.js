@@ -12,6 +12,7 @@ const CONTROL_HIDE_DELAY_MS = 4000;
 let currentState = null;
 let currentMediaState = { selected_file: "", selected_kind: "none", playback_state: "stopped" };
 let currentMediaKey = "";
+let currentMediaError = "";
 let controlsTimer = null;
 
 async function getJson(path, options) {
@@ -145,6 +146,14 @@ function syncMediaElementPlayback() {
   }
 }
 
+function applyMediaError() {
+  if (currentMediaError) {
+    mediaStageEl.dataset.mediaError = currentMediaError;
+    return;
+  }
+  delete mediaStageEl.dataset.mediaError;
+}
+
 function attachMediaHandlers(mediaElement) {
   mediaElement.loop = false;
   mediaElement.addEventListener("ended", () => {
@@ -152,7 +161,9 @@ function attachMediaHandlers(mediaElement) {
   });
   mediaElement.addEventListener("error", () => {
     if (currentMediaState.selected_kind === "video") {
-      mediaStageEl.dataset.mediaError = "This video could not be played. MP4 files may require H.264 video with AAC audio, or use WebM.";
+      currentMediaError = "This video could not be played by the browser. If the on-screen message mentions AAC, re-encode the MP4 to H.264 video with AAC-LC audio, or use WebM.";
+      applyMediaError();
+      showControls();
     }
   });
 }
@@ -162,6 +173,7 @@ function renderMediaStage() {
   if (!currentMediaState.selected_file) {
     mediaStageEl.className = "media-stage is-hidden";
     mediaStageEl.innerHTML = "";
+    currentMediaError = "";
     delete mediaStageEl.dataset.mediaError;
     bedsideShellEl.classList.remove("has-media");
     bedsideModulesEl.classList.remove("is-hidden");
@@ -178,7 +190,10 @@ function renderMediaStage() {
   bedsideShellEl.classList.add("has-media");
   bedsideModulesEl.classList.add("is-hidden");
   mediaStageEl.className = `media-stage kind-${currentMediaState.selected_kind}`;
-  delete mediaStageEl.dataset.mediaError;
+
+  if (currentMediaKey !== nextMediaKey) {
+    currentMediaError = "";
+  }
 
   if (shouldRebuild) {
     if (currentMediaState.selected_kind === "image") {
@@ -203,6 +218,7 @@ function renderMediaStage() {
     currentMediaKey = nextMediaKey;
   }
 
+  applyMediaError();
   syncMediaElementPlayback();
 }
 

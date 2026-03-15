@@ -129,3 +129,4 @@
 - Validation completed: python -m py_compile project/web/server.py.
 - Validation completed: ran a workspace-local Python smoke test against project.web.server to confirm .mp4 is classified as video and that backend media actions still persist distinct pause and stop states.
 - Tooling issue: apply_patch still fails in this Windows workspace with "windows sandbox: setup refresh failed with status exit code: 1", so the follow-up edits were written through PowerShell file writes again.
+- Follow-up fix: updated project/web/static/bedside.js so video decode errors persist across the bedside polling refresh instead of flashing briefly and disappearing.
