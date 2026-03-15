@@ -118,3 +118,14 @@
 - Validation completed: `python -m py_compile project/web/server.py`.
 - Validation completed: started `ThreadingHTTPServer` against a workspace-local media root, confirmed `GET /api/media/files` listed media entries, confirmed `POST /api/media/select` and `POST /api/media/action` updated media state, and confirmed `GET /media/photo.jpg` returned HTTP 206 for a range request.
 - Tooling issue: `apply_patch` continued to fail for `project/` files with `windows sandbox: setup refresh failed with status exit code: 1`, so the Task 10 project files were edited through PowerShell file writes instead.
+
+## 2026-03-15 Task 10 follow-up
+- Re-read AGENTS.md, notes/codex/10-spec.md, notes/codex/20-plan.md, notes/codex/30-tasks.md, and notes/codex/40-context.md before debugging the bedside media regression report.
+- Investigated project/web/server.py, project/web/static/bedside.js, and project/web/static/bedside.css after the runtime report that JPEG and WebM worked, MP4 did not, media was not using the full display area, and pause behaved the same as stop.
+- Fix applied: added explicit media content-type fallbacks in project/web/server.py for common image, audio, and video extensions and reused that helper when streaming media files.
+- Fix applied: updated project/web/static/bedside.js so media actions no longer rebuild the active audio or video element for the same selected file, which preserves playback position for pause and allows stop to reset to the beginning.
+- Fix applied: updated project/web/static/bedside.css so active image and video media uses full-screen layout and the playback controls stay anchored over the full display surface.
+- Runtime feedback handling: added a bedside video error hint for codec failures so unsupported MP4 files now produce guidance instead of failing silently.
+- Validation completed: python -m py_compile project/web/server.py.
+- Validation completed: ran a workspace-local Python smoke test against project.web.server to confirm .mp4 is classified as video and that backend media actions still persist distinct pause and stop states.
+- Tooling issue: apply_patch still fails in this Windows workspace with "windows sandbox: setup refresh failed with status exit code: 1", so the follow-up edits were written through PowerShell file writes again.

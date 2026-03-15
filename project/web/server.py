@@ -52,6 +52,24 @@ MOUNT_EXCLUDE_TYPES = {
     "tracefs",
 }
 MEDIA_FILE_KINDS = {"image", "audio", "video"}
+MEDIA_CONTENT_TYPES = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".gif": "image/gif",
+    ".bmp": "image/bmp",
+    ".webp": "image/webp",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".ogg": "audio/ogg",
+    ".m4a": "audio/mp4",
+    ".aac": "audio/aac",
+    ".mp4": "video/mp4",
+    ".m4v": "video/mp4",
+    ".mov": "video/quicktime",
+    ".webm": "video/webm",
+    ".ogv": "video/ogg",
+}
 
 CLOCK_DISPLAY_TYPES = {"analog", "digital"}
 CLOCK_HOUR_MODES = {"12", "24"}
@@ -252,8 +270,15 @@ def build_system_status() -> dict[str, Any]:
         }
 
 
-def media_kind_for_name(name: str) -> str:
+def media_content_type_for_name(name: str) -> str | None:
     content_type, _ = mimetypes.guess_type(name)
+    if content_type:
+        return content_type
+    return MEDIA_CONTENT_TYPES.get(Path(name).suffix.lower())
+
+
+def media_kind_for_name(name: str) -> str:
+    content_type = media_content_type_for_name(name)
     if not content_type:
         return "other"
     if content_type.startswith("image/"):
@@ -823,7 +848,7 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
         self.serve_file(file_path)
 
     def serve_file(self, file_path: Path) -> None:
-        content_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
+        content_type = media_content_type_for_name(file_path.name) or "application/octet-stream"
         file_size = file_path.stat().st_size
         range_header = self.headers.get("Range")
         start = 0

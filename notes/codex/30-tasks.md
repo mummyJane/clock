@@ -87,6 +87,9 @@
 - do release 0.3.0
 
 ## task 13
+- Document using Foam
+
+## task 14
 - mount USB drivers
 - mount nvme driver (PCIe)
     - setup

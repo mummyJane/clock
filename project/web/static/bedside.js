@@ -11,7 +11,7 @@ const CONTROL_HIDE_DELAY_MS = 4000;
 
 let currentState = null;
 let currentMediaState = { selected_file: "", selected_kind: "none", playback_state: "stopped" };
-let currentMediaUrl = "";
+let currentMediaKey = "";
 let controlsTimer = null;
 
 async function getJson(path, options) {
@@ -125,7 +125,7 @@ function mediaUrlForState() {
   if (!currentMediaState.selected_file) {
     return "";
   }
-  return `/media/${currentMediaState.selected_file.split("/").map(encodeURIComponent).join("/")}?t=${encodeURIComponent(currentMediaState.updated_at || "")}`;
+  return `/media/${currentMediaState.selected_file.split("/").map(encodeURIComponent).join("/")}`;
 }
 
 function syncMediaElementPlayback() {
@@ -145,46 +145,65 @@ function syncMediaElementPlayback() {
   }
 }
 
+function attachMediaHandlers(mediaElement) {
+  mediaElement.loop = false;
+  mediaElement.addEventListener("ended", () => {
+    sendMediaAction("stop").catch(() => {});
+  });
+  mediaElement.addEventListener("error", () => {
+    if (currentMediaState.selected_kind === "video") {
+      mediaStageEl.dataset.mediaError = "This video could not be played. MP4 files may require H.264 video with AAC audio, or use WebM.";
+    }
+  });
+}
+
 function renderMediaStage() {
   setMediaControlState();
   if (!currentMediaState.selected_file) {
     mediaStageEl.className = "media-stage is-hidden";
     mediaStageEl.innerHTML = "";
+    delete mediaStageEl.dataset.mediaError;
+    bedsideShellEl.classList.remove("has-media");
     bedsideModulesEl.classList.remove("is-hidden");
     mediaControlsEl.classList.add("is-hidden");
-    currentMediaUrl = "";
+    currentMediaKey = "";
     return;
   }
 
   const nextUrl = mediaUrlForState();
   const fileName = currentMediaState.selected_file.split("/").pop();
+  const nextMediaKey = `${currentMediaState.selected_kind}:${currentMediaState.selected_file}`;
+  const shouldRebuild = currentMediaKey !== nextMediaKey || !mediaStageEl.querySelector("img, audio, video");
+
+  bedsideShellEl.classList.add("has-media");
   bedsideModulesEl.classList.add("is-hidden");
   mediaStageEl.className = `media-stage kind-${currentMediaState.selected_kind}`;
+  delete mediaStageEl.dataset.mediaError;
 
-  if (currentMediaState.selected_kind === "image") {
-    mediaStageEl.innerHTML = `<img class="media-image" src="${nextUrl}" alt="${fileName}">`;
-  } else if (currentMediaState.selected_kind === "audio") {
-    mediaStageEl.innerHTML = `
-      <section class="media-audio-card">
-        <p class="clock-label">Now playing</p>
-        <h1>${fileName}</h1>
-        <p>Touch the screen to show playback controls.</p>
-        <audio id="bedsideMediaElement" src="${nextUrl}" preload="auto"></audio>
-      </section>
-    `;
-  } else {
-    mediaStageEl.innerHTML = `<video id="bedsideMediaElement" class="media-video" src="${nextUrl}" playsinline preload="auto"></video>`;
+  if (shouldRebuild) {
+    if (currentMediaState.selected_kind === "image") {
+      mediaStageEl.innerHTML = `<img class="media-image" src="${nextUrl}" alt="${fileName}">`;
+    } else if (currentMediaState.selected_kind === "audio") {
+      mediaStageEl.innerHTML = `
+        <section class="media-audio-card">
+          <p class="clock-label">Now playing</p>
+          <h1>${fileName}</h1>
+          <p>Touch the screen to show playback controls.</p>
+          <audio id="bedsideMediaElement" src="${nextUrl}" preload="auto"></audio>
+        </section>
+      `;
+    } else {
+      mediaStageEl.innerHTML = `<video id="bedsideMediaElement" class="media-video" src="${nextUrl}" playsinline preload="auto"></video>`;
+    }
+
+    const mediaElement = mediaStageEl.querySelector("audio, video");
+    if (mediaElement) {
+      attachMediaHandlers(mediaElement);
+    }
+    currentMediaKey = nextMediaKey;
   }
 
-  currentMediaUrl = nextUrl;
-  const mediaElement = mediaStageEl.querySelector("audio, video");
-  if (mediaElement) {
-    mediaElement.loop = false;
-    mediaElement.addEventListener("ended", () => {
-      sendMediaAction("stop").catch(() => {});
-    }, { once: true });
-    syncMediaElementPlayback();
-  }
+  syncMediaElementPlayback();
 }
 
 function renderBedside() {

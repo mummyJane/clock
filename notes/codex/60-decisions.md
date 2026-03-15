@@ -28,3 +28,8 @@
 - Use `/var/lib/clock/media` as the Task 10 media root so uploaded files survive application updates and live alongside the other persistent runtime state.
 - Expose the media library over a guest Samba share named `clock-media` because Task 10 is specifically about loading files without SSH and the device is intended for a trusted local network.
 - Keep media selection and playback state in a separate `media-state.json` file rather than folding it into module settings, because media playback is a device-level runtime concern and not a property of the clock module itself.
+
+## 2026-03-15
+- Keep media action timestamps out of the bedside media URL so play, pause, and stop do not force the browser to recreate the active audio or video element and lose playback position.
+- Add explicit extension-to-content-type fallbacks in project/web/server.py for common media formats instead of relying only on the host mime database, because Raspberry Pi and minimal Linux installs can vary in what mimetypes.guess_type() returns.
+- Surface a bedside video decode hint in the UI rather than silently failing, because some MP4 files will remain unplayable on Pi Chromium when the file codec is unsupported even if the server sends the correct video/mp4 content type.

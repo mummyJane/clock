@@ -28,3 +28,9 @@
 - Task 10 adds a persistent media library rooted at `/var/lib/clock/media`, with a Samba share named `clock-media` so files can be copied onto the device without SSH.
 - The setup web interface now includes a `Media` page for browsing folders in the media root, selecting a supported image/audio/video file, and clearing the current selection.
 - Bedside mode now checks the persisted media state and, when a file is selected, renders that image/audio/video full-screen with on-screen controls that only appear after touch and auto-hide after a short timeout.
+
+## 2026-03-15
+- Runtime follow-up: bedside media controls were rebuilding the player element on every action, which made pause lose the current playback position and behave the same as stop.
+- Runtime follow-up: bedside image and video media now switches the shell into a true full-screen media mode so selected media uses the display area instead of inheriting the module-page padding.
+- Runtime follow-up: media content type detection now includes explicit extension fallbacks for common audio, video, and image formats so .mp4 and related files are still classified and served correctly when platform mime mappings are incomplete.
+- Runtime follow-up: bedside video playback now surfaces an on-screen error hint when Chromium cannot decode a selected video, with guidance to prefer H.264 or AAC MP4 files or WebM on the Pi.
