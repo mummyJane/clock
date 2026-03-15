@@ -38,3 +38,4 @@
 - Route bedside playback through /media/current so the server can swap in a temporary transcoded file without changing the persisted selected media path or forcing the setup UI to know about playback artifacts.
 - Use ffmpeg as a best-effort local transcode helper for MP4, M4V, and MOV playback, falling back to the source file when ffmpeg is missing or a transcode fails so playback degrades gracefully instead of breaking media selection entirely.
 - Use a Web Audio API gain node with a 0-300 bedside volume range because the native HTML media element volume cap of 1.0 is not enough for the current speaker output level.
+- Prepare incompatible browser video formats in a background worker and expose the result through media state, because synchronous on-request transcoding still let Chromium hit a black-screen failure path before the converted file was ready.

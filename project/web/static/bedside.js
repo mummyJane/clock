@@ -150,7 +150,8 @@ function showControls() {
 
 function setMediaControlState() {
   const hasSelection = Boolean(currentMediaState.selected_file);
-  const canAdjustPlayback = hasSelection && currentMediaState.selected_kind !== "image";
+  const isReady = (currentMediaState.playback_status || "ready") === "ready";
+  const canAdjustPlayback = hasSelection && currentMediaState.selected_kind !== "image" && isReady;
   mediaPlayEl.disabled = !canAdjustPlayback || currentMediaState.playback_state === "playing";
   mediaPauseEl.disabled = !canAdjustPlayback || currentMediaState.playback_state !== "playing";
   mediaStopEl.disabled = !hasSelection;
@@ -159,11 +160,7 @@ function setMediaControlState() {
 }
 
 function mediaUrlForState() {
-  if (!currentMediaState.selected_file) {
-    return "";
-  }
-  const selectionKey = encodeURIComponent(`${currentMediaState.selected_kind}:${currentMediaState.selected_file}`);
-  return `/media/current?key=${selectionKey}`;
+  return currentMediaState.playback_url || "";
 }
 
 function syncVolumeControl() {
@@ -281,7 +278,7 @@ function attachMediaHandlers(mediaElement) {
   });
   mediaElement.addEventListener("error", () => {
     if (currentMediaState.selected_kind === "video") {
-      currentMediaError = "This video could not be played directly by the browser. The server will try a temporary WebM transcode for MP4, M4V, or MOV files. If audio is still missing, touch the screen once to resume playback.";
+      currentMediaError = currentMediaState.message || "This video could not be played after preparation.";
       applyMediaError();
       showControls();
     }
@@ -327,6 +324,9 @@ function renderMediaStage() {
   }
 
   if (shouldRebuild) {
+    const playbackStatus = currentMediaState.playback_status || "ready";
+    const statusMessage = currentMediaState.message || "";
+
     if (currentMediaState.selected_kind === "image") {
       mediaStageEl.innerHTML = `<img class="media-image" src="${nextUrl}" alt="${fileName}">`;
     } else if (currentMediaState.selected_kind === "audio") {
@@ -334,8 +334,16 @@ function renderMediaStage() {
         <section class="media-audio-card">
           <p class="clock-label">Now playing</p>
           <h1>${fileName}</h1>
-          <p>Touch the screen to show playback controls.</p>
+          <p>${statusMessage || "Touch the screen to show playback controls."}</p>
           <audio id="bedsideMediaElement" src="${nextUrl}" preload="auto"></audio>
+        </section>
+      `;
+    } else if (playbackStatus !== "ready") {
+      mediaStageEl.innerHTML = `
+        <section class="media-audio-card">
+          <p class="clock-label">Video</p>
+          <h1>${fileName}</h1>
+          <p>${statusMessage || (playbackStatus === "preparing" ? "Preparing a compatible video file..." : "This video could not be prepared for playback.")}</p>
         </section>
       `;
     } else {

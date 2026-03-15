@@ -9,6 +9,7 @@ import os
 import shutil
 import socket
 import subprocess
+import threading
 from datetime import datetime, timezone
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -117,6 +118,9 @@ DEFAULT_MEDIA_STATE: dict[str, Any] = {
     "selected_file": "",
     "selected_kind": "none",
     "playback_state": "stopped",
+    "playback_status": "idle",
+    "playback_url": "",
+    "message": "",
     "updated_at": "never",
 }
 
@@ -136,6 +140,10 @@ DEFAULT_MODULES: dict[str, Any] = {
         }
     }
 }
+
+
+MEDIA_TRANSCODE_LOCK = threading.Lock()
+MEDIA_TRANSCODE_THREADS: dict[str, threading.Thread] = {}
 
 
 def ensure_parent(path: Path) -> None:
@@ -337,6 +345,15 @@ def cleanup_media_temp_files(exclude: set[Path] | None = None) -> None:
             continue
 
 
+def current_playback_url_for(state: dict[str, Any]) -> str:
+    selected_file = str(state.get("selected_file", "")).strip()
+    selected_kind = str(state.get("selected_kind", "none")).strip()
+    if not selected_file:
+        return ""
+    selection_key = f"{selected_kind}:{selected_file}"
+    return f"/media/current?key={selection_key}"
+
+
 def transcoded_media_path_for(file_path: Path) -> Path:
     stat = file_path.stat()
     digest_source = f"{file_path.resolve()}:{stat.st_mtime_ns}:{stat.st_size}"
@@ -367,17 +384,70 @@ def ensure_transcoded_media(file_path: Path) -> Path:
         "4",
         str(output_path),
     ]
-    try:
-        subprocess.run(command, check=True, capture_output=True, text=True)
-    except FileNotFoundError:
-        return file_path
-    except subprocess.CalledProcessError:
-        try:
-            output_path.unlink(missing_ok=True)
-        except OSError:
-            pass
-        return file_path
+    subprocess.run(command, check=True, capture_output=True, text=True)
     return output_path
+
+
+def start_media_transcode(selected_file: str, file_path: Path) -> None:
+    output_path = transcoded_media_path_for(file_path)
+
+    with MEDIA_TRANSCODE_LOCK:
+        running = MEDIA_TRANSCODE_THREADS.get(selected_file)
+        if running and running.is_alive():
+            return
+
+        def worker() -> None:
+            try:
+                ensure_transcoded_media(file_path)
+                state = load_media_state()
+                if str(state.get("selected_file", "")).strip() != selected_file:
+                    cleanup_media_temp_files()
+                    return
+                save_media_state(
+                    {
+                        **state,
+                        "playback_status": "ready",
+                        "playback_url": current_playback_url_for(state),
+                        "message": "",
+                        "updated_at": current_timestamp(),
+                    }
+                )
+            except FileNotFoundError:
+                state = load_media_state()
+                if str(state.get("selected_file", "")).strip() == selected_file:
+                    save_media_state(
+                        {
+                            **state,
+                            "playback_status": "error",
+                            "playback_url": "",
+                            "message": "ffmpeg is not installed, so this video cannot be converted for browser playback.",
+                            "updated_at": current_timestamp(),
+                        }
+                    )
+            except subprocess.CalledProcessError as exc:
+                try:
+                    output_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+                state = load_media_state()
+                if str(state.get("selected_file", "")).strip() == selected_file:
+                    stderr = (exc.stderr or exc.stdout or str(exc)).strip()
+                    save_media_state(
+                        {
+                            **state,
+                            "playback_status": "error",
+                            "playback_url": "",
+                            "message": f"Video transcode failed: {stderr[:240]}",
+                            "updated_at": current_timestamp(),
+                        }
+                    )
+            finally:
+                with MEDIA_TRANSCODE_LOCK:
+                    MEDIA_TRANSCODE_THREADS.pop(selected_file, None)
+
+        thread = threading.Thread(target=worker, daemon=True, name=f"clock-transcode-{selected_file}")
+        MEDIA_TRANSCODE_THREADS[selected_file] = thread
+        thread.start()
 
 
 def resolve_current_media_playback_path() -> Path:
@@ -388,7 +458,11 @@ def resolve_current_media_playback_path() -> Path:
 
     source_path = resolve_media_path(selected_file)
     if media_requires_transcode(source_path):
-        return ensure_transcoded_media(source_path)
+        output_path = transcoded_media_path_for(source_path)
+        if not output_path.exists() or output_path.stat().st_size <= 0:
+            raise ValueError("Playback file is not ready.")
+        cleanup_media_temp_files({output_path})
+        return output_path
     cleanup_media_temp_files()
     return source_path
 
@@ -449,6 +523,10 @@ def load_media_state() -> dict[str, Any]:
 def save_media_state(payload: dict[str, Any]) -> dict[str, Any]:
     state = dict(DEFAULT_MEDIA_STATE)
     state.update(payload)
+    if not state.get("selected_file"):
+        state["playback_status"] = "idle"
+        state["playback_url"] = ""
+        state["message"] = ""
     save_json(MEDIA_STATE_PATH, state)
     return state
 
@@ -464,14 +542,32 @@ def select_media_file(relative_path: str) -> dict[str, Any]:
         raise ValueError("Selected file is not a supported image, audio, or video file.")
 
     cleanup_media_temp_files()
-    return save_media_state(
+    state = {
+        "selected_file": cleaned,
+        "selected_kind": kind,
+        "playback_state": "playing",
+        "updated_at": current_timestamp(),
+    }
+    if kind == "video" and media_requires_transcode(file_path):
+        state.update(
+            {
+                "playback_status": "preparing",
+                "playback_url": "",
+                "message": "Preparing a temporary compatible video file. Playback controls stay available while this runs.",
+            }
+        )
+        saved_state = save_media_state(state)
+        start_media_transcode(cleaned, file_path)
+        return saved_state
+
+    state.update(
         {
-            "selected_file": cleaned,
-            "selected_kind": kind,
-            "playback_state": "playing",
-            "updated_at": current_timestamp(),
+            "playback_status": "ready",
+            "playback_url": current_playback_url_for(state),
+            "message": "",
         }
     )
+    return save_media_state(state)
 
 
 def change_media_playback(action: str) -> dict[str, Any]:
@@ -486,6 +582,9 @@ def change_media_playback(action: str) -> dict[str, Any]:
                 "selected_file": "",
                 "selected_kind": "none",
                 "playback_state": "stopped",
+                "playback_status": "idle",
+                "playback_url": "",
+                "message": "",
                 "updated_at": current_timestamp(),
             }
         )

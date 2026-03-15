@@ -136,3 +136,5 @@
 - Validation completed: python -m py_compile project/web/server.py.
 - Validation completed: node --check project/web/static/bedside.js.
 - Validation completed: ran a workspace-local Python smoke test to confirm MP4 selection resolves through a temporary .webm playback file and that clearing media removes the temp transcode file.
+- Follow-up fix: reworked project/web/server.py and project/web/static/bedside.js so MP4, M4V, and MOV files are prepared in the background with a persisted preparing or ready status instead of blocking the bedside browser on direct playback.
+- Validation completed: ran a workspace-local Python smoke test to confirm MP4 selection first returns playback_status=preparing, then updates to playback_status=ready after the background temp .webm file is created.
