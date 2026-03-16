@@ -162,3 +162,12 @@
 - Validation completed: `node --check project/web/static/bedside.js`.
 - Validation completed: ran a workspace-local Python smoke test under `D:\clock\.tmp` to add an alarm, force it due, confirm it triggered media playback, and confirm stop removed the one-shot alarm and cleared media state.
 - Tooling issue: `apply_patch` still fails in this Windows workspace with `windows sandbox: setup refresh failed with status exit code: 1`, so Task 11 edits were written through PowerShell-mediated file writes again.
+
+## 2026-03-16 Task 11 follow-up
+- Follow-up fix: extended the Alarm module settings in project/web/server.py so alarm info now has its own persisted `screen_position`, and added `POST /api/alarm/update` so existing alarms can be edited in place.
+- Follow-up fix: updated project/web/static/index.html and project/web/static/app.js so the Alarm module page now exposes alarm layout settings, supports edit/cancel-edit actions for saved alarms, and includes an inline audio-file browser for selecting alarm audio from the shared media library.
+- Follow-up fix: updated project/web/static/bedside.js and project/web/static/bedside.css so bedside modules are rendered into independent positioned slots and audio playback now uses a fixed full-screen audio stage that no longer creates a scroll path.
+- Validation completed: `python -m py_compile project/web/server.py`.
+- Validation completed: `node --check project/web/static/app.js`.
+- Validation completed: `node --check project/web/static/bedside.js`.
+- Validation completed: ran a workspace-local Python smoke test under `D:\clock\.tmp` to confirm alarm screen position persists and that an existing alarm can be updated from daily to weekly with a different file and enabled state.

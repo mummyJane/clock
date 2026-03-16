@@ -182,8 +182,20 @@
         <section class="page" data-page="module-alarm">
           <div class="grid module-settings-grid">
             <article class="panel panel-form">
-              <div class="panel-header"><h2>Alarm module</h2></div>
+              <div class="panel-header"><h2>Alarm position</h2></div>
+              <form id="alarmModuleSettingsForm">
+                <label><span>Screen position</span><select id="alarmScreenPosition" name="screen_position"><option value="top-left">Top left</option><option value="top-center">Top center</option><option value="top-right">Top right</option><option value="center-left">Center left</option><option value="center">Center</option><option value="center-right">Center right</option><option value="bottom-left">Bottom left</option><option value="bottom-center">Bottom center</option><option value="bottom-right">Bottom right</option></select></label>
+                <div class="form-actions">
+                  <button class="primary-button" type="submit">Save alarm layout</button>
+                  <p id="alarmModuleFormStatus" class="form-status" role="status"></p>
+                </div>
+              </form>
+            </article>
+
+            <article class="panel panel-form">
+              <div class="panel-header"><h2 id="alarmEditorTitle">Add alarm</h2></div>
               <form id="alarmSettingsForm">
+                <input id="alarmEditId" type="hidden" value="">
                 <label><span>Alarm label</span><input id="alarmLabel" name="label" type="text" maxlength="64" placeholder="Weekday alarm" required></label>
                 <label><span>Audio file</span><input id="alarmMediaFile" name="media_file" type="text" maxlength="512" placeholder="tones/wake-up.mp3" required></label>
                 <button id="alarmUseSelectedMedia" class="ghost-button" type="button">Use selected audio from Media page</button>
@@ -214,16 +226,24 @@
                 <label class="toggle"><input id="alarmEnabled" name="enabled" type="checkbox" checked><span>Enable this alarm after saving</span></label>
                 <label class="toggle"><input id="alarmDeleteAfterStop" name="delete_after_stop" type="checkbox" checked><span>Delete the alarm after it is stopped</span></label>
                 <label class="toggle"><input id="alarmDisableAfterStop" name="disable_after_stop" type="checkbox"><span>Disable the alarm after it is stopped</span></label>
-                <div class="form-actions">
-                  <button class="primary-button" type="submit">Add alarm</button>
-                  <p id="alarmFormStatus" class="form-status" role="status"></p>
+                <div class="form-actions form-actions-inline">
+                  <button id="alarmSubmitButton" class="primary-button" type="submit">Add alarm</button>
+                  <button id="alarmCancelEdit" class="ghost-button" type="button" hidden>Cancel edit</button>
                 </div>
+                <p id="alarmFormStatus" class="form-status" role="status"></p>
               </form>
             </article>
 
             <article class="panel panel-emphasis">
               <div class="panel-header"><h2>Alarm state</h2></div>
               <div id="alarmActiveState" class="alarm-active-state"></div>
+            </article>
+
+            <article class="panel panel-wide">
+              <div class="panel-header"><h2>Audio files</h2></div>
+              <p class="support-copy">Browse the shared media folder here and use an audio file directly for the alarm form.</p>
+              <p id="alarmFilePath" class="support-copy">/</p>
+              <div id="alarmFileBrowser" class="media-browser">Loading audio files...</div>
             </article>
 
             <article class="panel panel-wide">

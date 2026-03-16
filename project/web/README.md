@@ -21,6 +21,7 @@ The server listens on port `8080` by default and serves:
 - `GET /api/alarm/state` for the currently active alarm and the next upcoming alarm summary
 - `POST /api/alarm/add` to create a countdown, daily, or selected-day alarm that plays an audio file from the media library
 - `POST /api/alarm/toggle` to enable or disable a saved alarm
+- `POST /api/alarm/update` to edit an existing saved alarm
 - `POST /api/alarm/delete` to remove a saved alarm
 - `POST /api/alarm/stop` to stop the currently active alarm and apply its delete/disable-after-stop behavior
 - `GET /api/update-status` for the last saved update-check result
@@ -51,6 +52,7 @@ The seeded module settings are:
 - `clock.date_format`
 - `clock.display_size`
 - `clock.screen_position`
+- `alarm.screen_position`
 - `alarm.alarms`
 
 For deployed installs, the systemd service points those JSON files at `/var/lib/clock/` so enabled modules, settings, and media state survive application updates. The media library itself is exposed from `/var/lib/clock/media` and can be shared over Samba.
@@ -71,3 +73,5 @@ Set `CLOCK_POWER_ACTION_MODE=mock` when testing the reboot and halt endpoints in
 Use `CLOCK_FFMPEG_BIN` and `CLOCK_FFPROBE_BIN` if `ffmpeg` or `ffprobe` are not on the default path. For selected `.mp4`, `.m4v`, and `.mov` files, the server now first probes the codecs, then prefers a fast MP4 remux when the source already uses browser-friendly H.264/AAC-class codecs, and only falls back to an H.264/AAC preparation pass when re-encoding is required.
 
 The built-in alarm module uses the shared media library paths from Task 10. Alarm playback currently expects supported audio files and restores the previous bedside media selection after the alarm is stopped.
+
+The Alarm module page now also includes an inline audio-file browser to help pick alarm audio from the shared media library, and existing alarms can be edited in place instead of only being toggled or deleted.

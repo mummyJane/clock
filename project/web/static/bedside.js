@@ -165,6 +165,21 @@ function formatAlarmSchedule(alarm) {
   return alarm.schedule_type || "Alarm";
 }
 
+
+function modulePositionFor(moduleId, module) {
+  if (moduleId === "clock") {
+    return module.settings?.screen_position || "center";
+  }
+  if (moduleId === "alarm") {
+    return module.settings?.screen_position || "bottom-center";
+  }
+  return "center";
+}
+
+function renderModuleSlot(moduleId, module, content) {
+  return `<div class="module-slot position-${modulePositionFor(moduleId, module)}" data-module-id="${moduleId}">${content}</div>`;
+}
+
 function renderAlarmModule(module) {
   const activeAlarm = currentAlarmState.active_alarm;
   const upcomingAlarm = currentAlarmState.upcoming_alarm;
@@ -433,7 +448,7 @@ function renderBedside() {
   const enabledModules = Object.entries(modules).filter(([, module]) => module.enabled);
 
   if (enabledModules.length === 0) {
-    bedsideModulesEl.className = "bedside-modules position-center";
+    bedsideModulesEl.className = "bedside-modules";
     bedsideModulesEl.innerHTML = "";
     if (!currentMediaState.selected_file) {
       bedsideModulesEl.classList.remove("is-hidden");
@@ -442,22 +457,21 @@ function renderBedside() {
     return;
   }
 
-  const firstPosition = enabledModules[0][1].settings?.screen_position || "center";
-  bedsideModulesEl.className = `bedside-modules position-${firstPosition}`;
+  bedsideModulesEl.className = "bedside-modules";
   bedsideModulesEl.innerHTML = enabledModules
     .map(([moduleId, module]) => {
       if (moduleId === "clock") {
-        return renderClockModule(module, timezone);
+        return renderModuleSlot(moduleId, module, renderClockModule(module, timezone));
       }
       if (moduleId === "alarm") {
-        return renderAlarmModule(module);
+        return renderModuleSlot(moduleId, module, renderAlarmModule(module));
       }
-      return `
+      return renderModuleSlot(moduleId, module, `
         <section class="bedside-card">
           <p class="clock-label">${module.title || moduleId}</p>
           <p>${module.description || "Enabled module"}</p>
         </section>
-      `;
+      `);
     })
     .join("");
   renderAlarmBanner();

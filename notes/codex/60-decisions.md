@@ -45,3 +45,6 @@
 - Persist Task 11 alarms inside the built-in `alarm` module settings in `modules.json`, because alarm definitions are module-owned configuration and should move with the module enablement model already used by the setup UI.
 - Reuse the existing bedside media playback path for alarm audio instead of building a second audio pipeline, so alarm triggering can benefit from the current browser/runtime media support with less new runtime surface area.
 - Restore the previous media state after stopping an alarm, because an alarm should temporarily interrupt bedside playback rather than permanently replacing the user's selected media.
+
+- Give the built-in alarm module its own persisted `screen_position` setting and render modules into independently positioned bedside slots, because the user needs to place alarm info separately from the clock instead of sharing one global module position.
+- Add in-place alarm editing plus an inline audio picker on the Alarm module page, because editing by delete-and-recreate and selecting files by manual path entry is too awkward for the touchscreen-first setup flow.

@@ -46,3 +46,6 @@
 - Task 11 adds a built-in `alarm` module with persisted alarm definitions inside the module registry, supporting countdown, daily, and selected-day schedules against audio files in the shared media library.
 - The web server now runs a local alarm scheduler thread, exposes alarm add/toggle/delete/stop endpoints, and restores the previous bedside media selection after an alarm is stopped.
 - The setup UI now includes an enabled Alarm module page for managing saved alarms, and bedside mode now shows alarm status plus a dedicated stop-alarm control when an alarm is active.
+
+- Task 11 follow-up: the Alarm module now also stores its own bedside screen position, supports in-place alarm editing, and includes an inline audio-file picker built from the shared media browser APIs.
+- Task 11 follow-up: bedside audio playback now uses a fixed full-screen audio stage so the audio card no longer pushes module content off-screen or creates a scroll path.

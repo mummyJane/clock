@@ -26,6 +26,9 @@ const mediaSelectionEl = document.getElementById("mediaSelection");
 const mediaBrowserEl = document.getElementById("mediaBrowser");
 const mediaStatusEl = document.getElementById("mediaStatus");
 const clearMediaSelectionEl = document.getElementById("clearMediaSelection");
+const alarmModuleSettingsFormEl = document.getElementById("alarmModuleSettingsForm");
+const alarmModuleFormStatusEl = document.getElementById("alarmModuleFormStatus");
+const alarmScreenPositionEl = document.getElementById("alarmScreenPosition");
 const alarmSettingsFormEl = document.getElementById("alarmSettingsForm");
 const alarmFormStatusEl = document.getElementById("alarmFormStatus");
 const alarmListEl = document.getElementById("alarmList");
@@ -35,6 +38,12 @@ const alarmScheduleTypeEl = document.getElementById("alarmScheduleType");
 const alarmCountdownFieldsEl = document.getElementById("alarmCountdownFields");
 const alarmTimeFieldsEl = document.getElementById("alarmTimeFields");
 const alarmWeekdayFieldsEl = document.getElementById("alarmWeekdayFields");
+const alarmEditorTitleEl = document.getElementById("alarmEditorTitle");
+const alarmSubmitButtonEl = document.getElementById("alarmSubmitButton");
+const alarmCancelEditEl = document.getElementById("alarmCancelEdit");
+const alarmEditIdEl = document.getElementById("alarmEditId");
+const alarmFilePathEl = document.getElementById("alarmFilePath");
+const alarmFileBrowserEl = document.getElementById("alarmFileBrowser");
 
 const basePages = [
   { id: "overview", label: "Overview" },
@@ -50,11 +59,13 @@ const WEEKDAY_LABELS = {
   sat: "Sat",
   sun: "Sun",
 };
+const DEFAULT_ALARM_SCREEN_POSITION = "bottom-center";
 
 let moduleState = { modules: {} };
 let mediaState = { selected_file: "", selected_kind: "none", playback_state: "stopped" };
 let currentAlarmState = { active_alarm: null, upcoming_alarm: null, alarm_count: 0, enabled_count: 0 };
 let currentMediaPath = "";
+let currentAlarmBrowserPath = "";
 
 async function getJson(path, options) {
   const response = await fetch(path, options);
@@ -89,6 +100,10 @@ function setClockSettingsForm(settings) {
   document.getElementById("clockDateFormat").value = settings.date_format || "dd/mm/yyyy";
   document.getElementById("clockDisplaySize").value = settings.display_size || "large";
   document.getElementById("clockScreenPosition").value = settings.screen_position || "center";
+}
+
+function setAlarmModuleSettingsForm(settings) {
+  alarmScreenPositionEl.value = settings.screen_position || DEFAULT_ALARM_SCREEN_POSITION;
 }
 
 function titleCase(value) {
@@ -338,12 +353,46 @@ function toggleAlarmFormFields() {
 
 function resetAlarmForm() {
   alarmSettingsFormEl.reset();
+  alarmEditIdEl.value = "";
+  alarmEditorTitleEl.textContent = "Add alarm";
+  alarmSubmitButtonEl.textContent = "Add alarm";
+  alarmCancelEditEl.hidden = true;
   document.getElementById("alarmCountdownValue").value = "10";
   document.getElementById("alarmCountdownUnit").value = "minutes";
   document.getElementById("alarmTimeOfDay").value = "07:00";
   document.getElementById("alarmEnabled").checked = true;
   document.getElementById("alarmDeleteAfterStop").checked = true;
   document.getElementById("alarmDisableAfterStop").checked = false;
+  toggleAlarmFormFields();
+}
+
+function populateAlarmForm(alarm) {
+  alarmEditIdEl.value = alarm.alarm_id;
+  alarmEditorTitleEl.textContent = `Edit ${alarm.label || "alarm"}`;
+  alarmSubmitButtonEl.textContent = "Save alarm";
+  alarmCancelEditEl.hidden = false;
+  document.getElementById("alarmLabel").value = alarm.label || "";
+  document.getElementById("alarmMediaFile").value = alarm.media_file || "";
+  alarmScheduleTypeEl.value = alarm.schedule_type || "countdown";
+  document.getElementById("alarmEnabled").checked = Boolean(alarm.enabled);
+  document.getElementById("alarmDeleteAfterStop").checked = Boolean(alarm.delete_after_stop);
+  document.getElementById("alarmDisableAfterStop").checked = Boolean(alarm.disable_after_stop);
+  document.querySelectorAll("input[name='alarmDays']").forEach((input) => {
+    input.checked = (alarm.days_of_week || []).includes(input.value);
+  });
+  if (alarm.schedule_type === "countdown") {
+    const target = new Date(alarm.trigger_at);
+    const diffMinutes = Number.isNaN(target.getTime()) ? 10 : Math.max(1, Math.round((target.getTime() - Date.now()) / 60000));
+    if (diffMinutes >= 60 && diffMinutes % 60 === 0) {
+      document.getElementById("alarmCountdownUnit").value = "hours";
+      document.getElementById("alarmCountdownValue").value = String(Math.max(1, diffMinutes / 60));
+    } else {
+      document.getElementById("alarmCountdownUnit").value = "minutes";
+      document.getElementById("alarmCountdownValue").value = String(diffMinutes);
+    }
+  } else {
+    document.getElementById("alarmTimeOfDay").value = alarm.time_of_day || "07:00";
+  }
   toggleAlarmFormFields();
 }
 
@@ -388,6 +437,7 @@ function renderAlarmState(alarmState, alarmModule = moduleState.modules?.alarm) 
         <p class="support-copy">Status: ${escapeHtml(alarmStatusText(alarm))}</p>
       </div>
       <div class="alarm-card-actions">
+        <button class="ghost-button" type="button" data-edit-alarm="${escapeHtml(alarm.alarm_id)}">Edit</button>
         <button class="ghost-button" type="button" data-toggle-alarm="${escapeHtml(alarm.alarm_id)}" data-enabled="${alarm.enabled ? "false" : "true"}">${alarm.enabled ? "Disable" : "Enable"}</button>
         <button class="ghost-button" type="button" data-delete-alarm="${escapeHtml(alarm.alarm_id)}">Delete</button>
       </div>
@@ -396,7 +446,54 @@ function renderAlarmState(alarmState, alarmModule = moduleState.modules?.alarm) 
 }
 
 function renderAlarmModule(module) {
+  const settings = module?.settings || { screen_position: DEFAULT_ALARM_SCREEN_POSITION, alarms: [] };
+  setAlarmModuleSettingsForm(settings);
   renderAlarmState(currentAlarmState, module);
+}
+
+
+
+function renderAlarmFileBrowser(listing) {
+  currentAlarmBrowserPath = listing.current_path || "";
+  alarmFilePathEl.textContent = currentAlarmBrowserPath || "/";
+
+  const parentButton = currentAlarmBrowserPath
+    ? `<button class="ghost-button" type="button" data-alarm-path="${escapeHtml(listing.parent_path || "")}">Open parent</button>`
+    : "";
+
+  const entries = (listing.entries || []).filter((entry) => entry.type === "directory" || entry.kind === "audio");
+  if (!entries.length) {
+    alarmFileBrowserEl.innerHTML = `${parentButton}<p class="support-copy">No audio files found in this folder.</p>`;
+    return;
+  }
+
+  alarmFileBrowserEl.innerHTML = `
+    ${parentButton}
+    <div class="media-entry-list">
+      ${entries.map((entry) => {
+        if (entry.type === "directory") {
+          return `
+            <article class="media-entry-card">
+              <div>
+                <h3>${escapeHtml(entry.name)}</h3>
+                <p>Folder</p>
+              </div>
+              <button class="primary-button" type="button" data-alarm-path="${escapeHtml(entry.relative_path)}">Open</button>
+            </article>
+          `;
+        }
+        return `
+          <article class="media-entry-card">
+            <div>
+              <h3>${escapeHtml(entry.name)}</h3>
+              <p>${entry.size_bytes || 0} bytes</p>
+            </div>
+            <button class="primary-button" type="button" data-alarm-file="${escapeHtml(entry.relative_path)}">Use</button>
+          </article>
+        `;
+      }).join("")}
+    </div>
+  `;
 }
 
 function renderSystemState(systemState) {
@@ -406,10 +503,9 @@ function renderSystemState(systemState) {
   updatedAtEl.textContent = systemState.release.updated_at || "Unknown";
   renderUpdateStatus(systemState.update_status || {});
   setSettingsForm(systemState.settings || {});
+  currentAlarmState = systemState.alarm_state || currentAlarmState;
   renderModules(systemState.modules || moduleState);
   renderMediaState(systemState.media_state || mediaState);
-  currentAlarmState = systemState.alarm_state || currentAlarmState;
-  renderAlarmModule((systemState.modules || moduleState).modules?.alarm);
 }
 
 async function loadSystemState() {
@@ -426,6 +522,12 @@ async function loadMediaBrowser(path = currentMediaPath) {
   const query = path ? `?path=${encodeURIComponent(path)}` : "";
   const listing = await getJson(`/api/media/files${query}`);
   renderMediaBrowser(listing);
+}
+
+async function loadAlarmFileBrowser(path = currentAlarmBrowserPath) {
+  const query = path ? `?path=${encodeURIComponent(path)}` : "";
+  const listing = await getJson(`/api/media/files${query}`);
+  renderAlarmFileBrowser(listing);
 }
 
 async function loadMediaState() {
@@ -656,11 +758,9 @@ function applyAlarmMutation(result) {
   }
 }
 
-async function addAlarm(event) {
-  event.preventDefault();
-  alarmFormStatusEl.textContent = "Saving alarm...";
-
-  const payload = {
+function buildAlarmPayload() {
+  return {
+    alarm_id: alarmEditIdEl.value,
     label: document.getElementById("alarmLabel").value,
     media_file: document.getElementById("alarmMediaFile").value,
     schedule_type: document.getElementById("alarmScheduleType").value,
@@ -672,15 +772,21 @@ async function addAlarm(event) {
     delete_after_stop: document.getElementById("alarmDeleteAfterStop").checked,
     disable_after_stop: document.getElementById("alarmDisableAfterStop").checked,
   };
+}
+
+async function saveAlarm(event) {
+  event.preventDefault();
+  const isEditing = Boolean(alarmEditIdEl.value);
+  alarmFormStatusEl.textContent = isEditing ? "Saving alarm changes..." : "Saving alarm...";
 
   try {
-    const result = await getJson("/api/alarm/add", {
+    const result = await getJson(isEditing ? "/api/alarm/update" : "/api/alarm/add", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(buildAlarmPayload()),
     });
     applyAlarmMutation(result);
-    alarmFormStatusEl.textContent = "Alarm added.";
+    alarmFormStatusEl.textContent = isEditing ? "Alarm updated." : "Alarm added.";
     resetAlarmForm();
   } catch (error) {
     alarmFormStatusEl.textContent = error.message;
@@ -707,6 +813,9 @@ async function removeAlarm(alarmId) {
   });
   applyAlarmMutation(result);
   alarmFormStatusEl.textContent = "Alarm deleted.";
+  if (alarmEditIdEl.value === alarmId) {
+    resetAlarmForm();
+  }
 }
 
 async function stopAlarm() {
@@ -780,14 +889,36 @@ clockSettingsFormEl.addEventListener("change", () => {
   });
 });
 
+alarmModuleSettingsFormEl.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const nextModules = JSON.parse(JSON.stringify(moduleState));
+  nextModules.modules.alarm.settings = {
+    ...nextModules.modules.alarm.settings,
+    screen_position: alarmScreenPositionEl.value,
+  };
+  alarmModuleFormStatusEl.textContent = "Saving alarm layout...";
+  moduleState = nextModules;
+  saveModules().then(() => {
+    alarmModuleFormStatusEl.textContent = "Alarm layout saved.";
+  }).catch((error) => {
+    alarmModuleFormStatusEl.textContent = error.message;
+    loadModules().catch(() => {});
+  });
+});
+
 alarmSettingsFormEl.addEventListener("submit", (event) => {
-  addAlarm(event);
+  saveAlarm(event);
 });
 
 alarmScheduleTypeEl.addEventListener("change", () => {
   const scheduleType = alarmScheduleTypeEl.value;
   document.getElementById("alarmDeleteAfterStop").checked = scheduleType === "countdown";
   toggleAlarmFormFields();
+});
+
+alarmCancelEditEl.addEventListener("click", () => {
+  resetAlarmForm();
+  alarmFormStatusEl.textContent = "Alarm edit cancelled.";
 });
 
 alarmUseSelectedMediaEl.addEventListener("click", () => {
@@ -799,7 +930,35 @@ alarmUseSelectedMediaEl.addEventListener("click", () => {
   alarmFormStatusEl.textContent = "Alarm audio file copied from current media selection.";
 });
 
+alarmFileBrowserEl.addEventListener("click", (event) => {
+  const pathButton = event.target.closest("[data-alarm-path]");
+  if (pathButton) {
+    loadAlarmFileBrowser(pathButton.dataset.alarmPath).catch((error) => {
+      alarmFormStatusEl.textContent = error.message;
+    });
+    return;
+  }
+
+  const fileButton = event.target.closest("[data-alarm-file]");
+  if (fileButton) {
+    document.getElementById("alarmMediaFile").value = fileButton.dataset.alarmFile;
+    alarmFormStatusEl.textContent = "Alarm audio file selected.";
+  }
+});
+
 alarmListEl.addEventListener("click", (event) => {
+  const editButton = event.target.closest("[data-edit-alarm]");
+  if (editButton) {
+    const alarms = moduleState.modules?.alarm?.settings?.alarms || [];
+    const alarm = alarms.find((item) => item.alarm_id === editButton.dataset.editAlarm);
+    if (alarm) {
+      populateAlarmForm(alarm);
+      window.location.hash = "#module-alarm";
+      alarmFormStatusEl.textContent = "Editing alarm.";
+    }
+    return;
+  }
+
   const toggleButton = event.target.closest("[data-toggle-alarm]");
   if (toggleButton) {
     toggleAlarm(toggleButton.dataset.toggleAlarm, toggleButton.dataset.enabled === "true").catch((error) => {
@@ -836,6 +995,6 @@ formEl.addEventListener("submit", (event) => {
 
 resetAlarmForm();
 
-Promise.all([refreshOverview(), loadModules(), loadMediaBrowser(""), loadMediaState()]).catch((error) => {
+Promise.all([refreshOverview(), loadModules(), loadMediaBrowser(""), loadAlarmFileBrowser(""), loadMediaState()]).catch((error) => {
   formStatusEl.textContent = error.message;
 });

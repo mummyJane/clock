@@ -147,6 +147,7 @@ DEFAULT_MODULES: dict[str, Any] = {
             "description": "Schedule bedside alarms that play audio from the media library.",
             "enabled": False,
             "settings": {
+                "screen_position": "bottom-center",
                 "alarms": [],
             },
         },
@@ -892,6 +893,10 @@ def validate_alarm_settings(payload: Any) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError("Alarm settings must be a JSON object.")
 
+    screen_position = str(payload.get("screen_position", DEFAULT_MODULES["modules"]["alarm"]["settings"].get("screen_position", "bottom-center"))).strip()
+    if screen_position not in CLOCK_SCREEN_POSITIONS:
+        raise ValueError("Alarm screen position is invalid.")
+
     raw_alarms = payload.get("alarms", [])
     if not isinstance(raw_alarms, list):
         raise ValueError("Alarm settings must contain an alarms list.")
@@ -964,7 +969,7 @@ def validate_alarm_settings(payload: Any) -> dict[str, Any]:
 
         cleaned_alarms.append(cleaned_alarm)
 
-    return {"alarms": cleaned_alarms}
+    return {"screen_position": screen_position, "alarms": cleaned_alarms}
 
 def validate_modules(payload: Any) -> dict[str, Any]:
     if not isinstance(payload, dict):
@@ -1331,6 +1336,78 @@ def add_alarm(payload: Any) -> dict[str, Any]:
     return {"modules": modules, "alarm_state": build_alarm_state()}
 
 
+def update_alarm(payload: Any) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise ValueError("Alarm payload must be a JSON object.")
+
+    alarm_id = str(payload.get("alarm_id", "")).strip()
+    if not alarm_id:
+        raise ValueError("Alarm id is required.")
+
+    media_file = clean_media_relative_path(str(payload.get("media_file", "")).strip())
+    media_path = resolve_media_path(media_file)
+    if not media_path.exists() or not media_path.is_file():
+        raise ValueError(f"Alarm media file does not exist: {media_file}")
+
+    schedule_type = str(payload.get("schedule_type", "daily")).strip()
+    raw_alarm: dict[str, Any] = {
+        "alarm_id": alarm_id,
+        "label": str(payload.get("label", "Alarm")).strip()[:64] or "Alarm",
+        "enabled": bool(payload.get("enabled", True)),
+        "media_file": media_file,
+        "schedule_type": schedule_type,
+        "delete_after_stop": bool(payload.get("delete_after_stop", schedule_type == "countdown")),
+        "disable_after_stop": bool(payload.get("disable_after_stop", False)),
+        "fired_at": "",
+        "last_triggered_slot": "",
+    }
+
+    if schedule_type == "countdown":
+        countdown_value = payload.get("countdown_value")
+        countdown_unit = str(payload.get("countdown_unit", "minutes")).strip()
+        if isinstance(countdown_value, bool):
+            raise ValueError("Countdown value must be a number.")
+        try:
+            countdown_value = int(countdown_value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Countdown value must be a number.") from exc
+        if countdown_value < 1:
+            raise ValueError("Countdown value must be at least 1.")
+        if countdown_unit not in {"minutes", "hours"}:
+            raise ValueError("Countdown unit must be minutes or hours.")
+        delta = timedelta(minutes=countdown_value) if countdown_unit == "minutes" else timedelta(hours=countdown_value)
+        raw_alarm["trigger_at"] = (datetime.now(timezone.utc) + delta).strftime("%Y-%m-%dT%H:%M:%SZ")
+    elif schedule_type in {"daily", "weekly"}:
+        raw_alarm["time_of_day"] = str(payload.get("time_of_day", "")).strip()
+        if schedule_type == "weekly":
+            raw_alarm["days_of_week"] = payload.get("days_of_week", [])
+    else:
+        raise ValueError("Alarm schedule type must be countdown, daily, or weekly.")
+
+    validated_alarm = validate_alarm_settings({"screen_position": DEFAULT_MODULES["modules"]["alarm"]["settings"]["screen_position"], "alarms": [raw_alarm]})["alarms"][0]
+    updated = False
+
+    def mutator(modules: dict[str, Any]) -> None:
+        nonlocal updated
+        alarms = modules.get("modules", {}).get("alarm", {}).get("settings", {}).get("alarms", [])
+        for index, alarm in enumerate(alarms):
+            if str(alarm.get("alarm_id", "")).strip() == alarm_id:
+                alarms[index] = validated_alarm
+                updated = True
+                break
+
+    modules = update_modules_state(mutator)
+    if not updated:
+        raise ValueError("Alarm not found.")
+
+    with ALARM_STATE_LOCK:
+        global ACTIVE_ALARM
+        if ACTIVE_ALARM and str(ACTIVE_ALARM.get("alarm_id", "")).strip() == alarm_id:
+            ACTIVE_ALARM.update(alarm_summary(validated_alarm))
+
+    return {"modules": modules, "alarm_state": build_alarm_state()}
+
+
 def set_alarm_enabled(alarm_id: str, enabled: bool) -> dict[str, Any]:
     updated = False
 
@@ -1490,6 +1567,9 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/alarm/toggle":
             self.handle_toggle_alarm()
             return
+        if parsed.path == "/api/alarm/update":
+            self.handle_update_alarm()
+            return
         if parsed.path == "/api/alarm/delete":
             self.handle_delete_alarm()
             return
@@ -1595,6 +1675,20 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
         try:
             payload = json.loads(raw_body.decode("utf-8"))
             result = set_alarm_enabled(str(payload.get("alarm_id", "")).strip(), bool(payload.get("enabled", False)))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            self.send_json({"error": f"Invalid JSON payload: {exc}"}, HTTPStatus.BAD_REQUEST)
+            return
+        except ValueError as exc:
+            self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        self.send_json(result, HTTPStatus.OK)
+
+    def handle_update_alarm(self) -> None:
+        content_length = int(self.headers.get("Content-Length", "0"))
+        raw_body = self.rfile.read(content_length)
+        try:
+            payload = json.loads(raw_body.decode("utf-8"))
+            result = update_alarm(payload)
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             self.send_json({"error": f"Invalid JSON payload: {exc}"}, HTTPStatus.BAD_REQUEST)
             return
