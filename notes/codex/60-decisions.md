@@ -41,3 +41,7 @@
 - Prepare incompatible browser video formats in a background worker and expose the result through media state, because synchronous on-request transcoding still let Chromium hit a black-screen failure path before the converted file was ready.
 
 - Prefer codec-probed MP4 remuxing over full re-encode for bedside video preparation, because many phone and camera files are already H.264/AAC and can be made browser-ready much faster with `-c copy` plus `+faststart`.
+
+- Persist Task 11 alarms inside the built-in `alarm` module settings in `modules.json`, because alarm definitions are module-owned configuration and should move with the module enablement model already used by the setup UI.
+- Reuse the existing bedside media playback path for alarm audio instead of building a second audio pipeline, so alarm triggering can benefit from the current browser/runtime media support with less new runtime surface area.
+- Restore the previous media state after stopping an alarm, because an alarm should temporarily interrupt bedside playback rather than permanently replacing the user's selected media.

@@ -149,3 +149,16 @@
 - Validation completed: ran a workspace-local Python smoke test under `D:\clock\.tmp` to confirm H.264/AAC input takes the fast remux path.
 - Validation completed: ran a workspace-local Python smoke test under `D:\clock\.tmp` to confirm incompatible input falls back to `libx264`/`aac` instead of the previous VP9/WebM path.
 - Tooling issue: `apply_patch` still fails in this Windows workspace with `windows sandbox: setup refresh failed with status exit code: 1`, so this follow-up used PowerShell-mediated file writes again after the patch attempt failed.
+
+## 2026-03-16 Task 11
+- Re-read AGENTS.md, notes/codex/10-spec.md, notes/codex/20-plan.md, notes/codex/30-tasks.md, and notes/codex/40-context.md before starting the alarm module work.
+- Extended project/web/server.py with a built-in alarm module definition, alarm validation, persisted alarm helpers, an in-process scheduler thread, and alarm add/toggle/delete/stop endpoints.
+- Added the built-in module files under project/modules/alarm/ and seeded the new alarm module in project/web/data/modules.json.
+- Updated project/web/static/index.html, project/web/static/app.js, and project/web/static/styles.css to add an Alarm module page where alarms can be created, enabled or disabled, deleted, and stopped.
+- Updated project/web/static/bedside.html, project/web/static/bedside.js, and project/web/static/bedside.css so bedside mode shows alarm status and exposes a dedicated stop-alarm control while an alarm is active.
+- Updated project/web/README.md and project/modules/README.md to document the new alarm APIs and built-in module layout.
+- Validation completed: `python -m py_compile project/web/server.py project/modules/alarm/module.py project/modules/clock/module.py`.
+- Validation completed: `node --check project/web/static/app.js`.
+- Validation completed: `node --check project/web/static/bedside.js`.
+- Validation completed: ran a workspace-local Python smoke test under `D:\clock\.tmp` to add an alarm, force it due, confirm it triggered media playback, and confirm stop removed the one-shot alarm and cleared media state.
+- Tooling issue: `apply_patch` still fails in this Windows workspace with `windows sandbox: setup refresh failed with status exit code: 1`, so Task 11 edits were written through PowerShell-mediated file writes again.

@@ -7,14 +7,28 @@ const mediaPauseEl = document.getElementById("mediaPause");
 const mediaStopEl = document.getElementById("mediaStop");
 const mediaVolumeEl = document.getElementById("mediaVolume");
 const mediaClearEl = document.getElementById("mediaClear");
+const alarmBannerEl = document.getElementById("alarmBanner");
+const alarmBannerTitleEl = document.getElementById("alarmBannerTitle");
+const alarmBannerMetaEl = document.getElementById("alarmBannerMeta");
+const alarmStopEl = document.getElementById("alarmStop");
 
 const CONTROL_HIDE_DELAY_MS = 4000;
 const DEFAULT_MEDIA_VOLUME = 2;
 const MAX_MEDIA_VOLUME = 3;
 const VOLUME_STORAGE_KEY = "clock.media.volume";
+const WEEKDAY_LABELS = {
+  mon: "Mon",
+  tue: "Tue",
+  wed: "Wed",
+  thu: "Thu",
+  fri: "Fri",
+  sat: "Sat",
+  sun: "Sun",
+};
 
 let currentState = null;
 let currentMediaState = { selected_file: "", selected_kind: "none", playback_state: "stopped" };
+let currentAlarmState = { active_alarm: null, upcoming_alarm: null, alarm_count: 0, enabled_count: 0 };
 let currentMediaKey = "";
 let currentMediaError = "";
 let currentVolume = loadStoredVolume();
@@ -131,6 +145,40 @@ function renderClockModule(module, timezone) {
       <p class="clock-label">Clock</p>
       <p class="clock-digital-time">${formatTime(now, settings, timezone)}</p>
       <p class="clock-date">${formattedDate}</p>
+    </section>
+  `;
+}
+
+function formatAlarmSchedule(alarm) {
+  if (!alarm) {
+    return "No alarm scheduled";
+  }
+  if (alarm.schedule_type === "countdown") {
+    return `Once at ${new Date(alarm.trigger_at).toLocaleString([], { hour: "2-digit", minute: "2-digit", month: "short", day: "2-digit" })}`;
+  }
+  if (alarm.schedule_type === "daily") {
+    return `Every day at ${alarm.time_of_day}`;
+  }
+  if (alarm.schedule_type === "weekly") {
+    return `${(alarm.days_of_week || []).map((day) => WEEKDAY_LABELS[day] || day).join(", ")} at ${alarm.time_of_day}`;
+  }
+  return alarm.schedule_type || "Alarm";
+}
+
+function renderAlarmModule(module) {
+  const activeAlarm = currentAlarmState.active_alarm;
+  const upcomingAlarm = currentAlarmState.upcoming_alarm;
+  const summary = activeAlarm
+    ? `Ringing now: ${activeAlarm.label || "Alarm"}`
+    : upcomingAlarm
+      ? formatAlarmSchedule(upcomingAlarm)
+      : "No enabled alarms";
+
+  return `
+    <section class="bedside-card alarm-card-surface">
+      <p class="clock-label">Alarm</p>
+      <p class="alarm-card-title">${activeAlarm ? "Alarm active" : (module.title || "Alarm")}</p>
+      <p class="clock-date">${summary}</p>
     </section>
   `;
 }
@@ -289,9 +337,22 @@ function attachMediaHandlers(mediaElement) {
   });
 }
 
+function renderAlarmBanner() {
+  const activeAlarm = currentAlarmState.active_alarm;
+  if (!activeAlarm) {
+    alarmBannerEl.classList.add("is-hidden");
+    alarmBannerMetaEl.textContent = "";
+    return;
+  }
+  alarmBannerTitleEl.textContent = activeAlarm.label || "Alarm active";
+  alarmBannerMetaEl.textContent = `Playing ${activeAlarm.media_file || "audio"}`;
+  alarmBannerEl.classList.remove("is-hidden");
+}
+
 function renderMediaStage() {
   setMediaControlState();
   syncVolumeControl();
+  renderAlarmBanner();
 
   if (!currentMediaState.selected_file) {
     mediaStageEl.className = "media-stage is-hidden";
@@ -377,6 +438,7 @@ function renderBedside() {
     if (!currentMediaState.selected_file) {
       bedsideModulesEl.classList.remove("is-hidden");
     }
+    renderAlarmBanner();
     return;
   }
 
@@ -387,6 +449,9 @@ function renderBedside() {
       if (moduleId === "clock") {
         return renderClockModule(module, timezone);
       }
+      if (moduleId === "alarm") {
+        return renderAlarmModule(module);
+      }
       return `
         <section class="bedside-card">
           <p class="clock-label">${module.title || moduleId}</p>
@@ -395,10 +460,12 @@ function renderBedside() {
       `;
     })
     .join("");
+  renderAlarmBanner();
 }
 
 async function loadSystemState() {
   currentState = await getJson("/api/system");
+  currentAlarmState = currentState.alarm_state || currentAlarmState;
   renderBedside();
 }
 
@@ -420,6 +487,15 @@ async function sendMediaAction(action) {
   resumeMediaPlayback().catch(() => {});
 }
 
+async function stopAlarm() {
+  await getJson("/api/alarm/stop", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  await Promise.all([loadSystemState(), loadMediaState()]);
+}
+
 bedsideShellEl.addEventListener("pointerdown", () => {
   showControls();
   resumeMediaPlayback().catch(() => {});
@@ -436,6 +512,7 @@ mediaVolumeEl.addEventListener("input", () => {
   showControls();
 });
 mediaClearEl.addEventListener("click", () => { sendMediaAction("clear").catch(() => {}); });
+alarmStopEl.addEventListener("click", () => { stopAlarm().catch(() => {}); });
 
 Promise.all([loadSystemState(), loadMediaState()]).catch((error) => {
   bedsideModulesEl.className = "bedside-modules position-center";

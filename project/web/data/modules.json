@@ -11,6 +11,14 @@
         "display_size": "large",
         "screen_position": "center"
       }
+    },
+    "alarm": {
+      "title": "Alarm",
+      "description": "Schedule bedside alarms that play audio from the media library.",
+      "enabled": false,
+      "settings": {
+        "alarms": []
+      }
     }
   }
 }

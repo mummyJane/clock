@@ -11,7 +11,7 @@
     <section class="hero">
       <p class="eyebrow">Clock Setup</p>
       <h1>Prepare the bedside clock without a keyboard.</h1>
-      <p class="lede">Use this local page to confirm network reachability, device identity, manage bedside modules, browse the shared media folder, and control the unit when SSH is not available.</p>
+      <p class="lede">Use this local page to confirm network reachability, device identity, manage bedside modules, browse the shared media folder, schedule alarms, and control the unit when SSH is not available.</p>
     </section>
 
     <section class="workspace">
@@ -175,6 +175,60 @@
                 <div><dt>Size</dt><dd id="clockPreviewSize">Large</dd></div>
                 <div><dt>Position</dt><dd id="clockPreviewPosition">Center</dd></div>
               </dl>
+            </article>
+          </div>
+        </section>
+
+        <section class="page" data-page="module-alarm">
+          <div class="grid module-settings-grid">
+            <article class="panel panel-form">
+              <div class="panel-header"><h2>Alarm module</h2></div>
+              <form id="alarmSettingsForm">
+                <label><span>Alarm label</span><input id="alarmLabel" name="label" type="text" maxlength="64" placeholder="Weekday alarm" required></label>
+                <label><span>Audio file</span><input id="alarmMediaFile" name="media_file" type="text" maxlength="512" placeholder="tones/wake-up.mp3" required></label>
+                <button id="alarmUseSelectedMedia" class="ghost-button" type="button">Use selected audio from Media page</button>
+                <label><span>Schedule</span>
+                  <select id="alarmScheduleType" name="schedule_type">
+                    <option value="countdown">In minutes or hours</option>
+                    <option value="daily">Every day at a set time</option>
+                    <option value="weekly">On selected days at a set time</option>
+                  </select>
+                </label>
+                <div id="alarmCountdownFields" class="inline-fields">
+                  <label><span>In</span><input id="alarmCountdownValue" name="countdown_value" type="number" min="1" value="10"></label>
+                  <label><span>Unit</span><select id="alarmCountdownUnit" name="countdown_unit"><option value="minutes">Minutes</option><option value="hours">Hours</option></select></label>
+                </div>
+                <div id="alarmTimeFields" class="inline-fields" hidden>
+                  <label><span>Time</span><input id="alarmTimeOfDay" name="time_of_day" type="time" value="07:00"></label>
+                </div>
+                <fieldset id="alarmWeekdayFields" class="weekday-fieldset" hidden>
+                  <legend>Days</legend>
+                  <label class="toggle"><input type="checkbox" name="alarmDays" value="mon"><span>Mon</span></label>
+                  <label class="toggle"><input type="checkbox" name="alarmDays" value="tue"><span>Tue</span></label>
+                  <label class="toggle"><input type="checkbox" name="alarmDays" value="wed"><span>Wed</span></label>
+                  <label class="toggle"><input type="checkbox" name="alarmDays" value="thu"><span>Thu</span></label>
+                  <label class="toggle"><input type="checkbox" name="alarmDays" value="fri"><span>Fri</span></label>
+                  <label class="toggle"><input type="checkbox" name="alarmDays" value="sat"><span>Sat</span></label>
+                  <label class="toggle"><input type="checkbox" name="alarmDays" value="sun"><span>Sun</span></label>
+                </fieldset>
+                <label class="toggle"><input id="alarmEnabled" name="enabled" type="checkbox" checked><span>Enable this alarm after saving</span></label>
+                <label class="toggle"><input id="alarmDeleteAfterStop" name="delete_after_stop" type="checkbox" checked><span>Delete the alarm after it is stopped</span></label>
+                <label class="toggle"><input id="alarmDisableAfterStop" name="disable_after_stop" type="checkbox"><span>Disable the alarm after it is stopped</span></label>
+                <div class="form-actions">
+                  <button class="primary-button" type="submit">Add alarm</button>
+                  <p id="alarmFormStatus" class="form-status" role="status"></p>
+                </div>
+              </form>
+            </article>
+
+            <article class="panel panel-emphasis">
+              <div class="panel-header"><h2>Alarm state</h2></div>
+              <div id="alarmActiveState" class="alarm-active-state"></div>
+            </article>
+
+            <article class="panel panel-wide">
+              <div class="panel-header"><h2>Saved alarms</h2></div>
+              <div id="alarmList" class="alarm-list"></div>
             </article>
           </div>
         </section>

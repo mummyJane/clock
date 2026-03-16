@@ -42,3 +42,7 @@
 - Runtime follow-up: the bedside playback controls now stay active while incompatible video is being prepared, which avoids the browser black-screen lockup path seen when Chromium tried to open unsupported MP4 content directly.
 
 - Runtime follow-up: MP4, M4V, and MOV preparation now probes codecs with `ffprobe`, prefers a fast MP4 remux for H.264/AAC-class sources, and only falls back to an H.264/AAC transcode when re-encoding is required.
+
+- Task 11 adds a built-in `alarm` module with persisted alarm definitions inside the module registry, supporting countdown, daily, and selected-day schedules against audio files in the shared media library.
+- The web server now runs a local alarm scheduler thread, exposes alarm add/toggle/delete/stop endpoints, and restores the previous bedside media selection after an alarm is stopped.
+- The setup UI now includes an enabled Alarm module page for managing saved alarms, and bedside mode now shows alarm status plus a dedicated stop-alarm control when an alarm is active.

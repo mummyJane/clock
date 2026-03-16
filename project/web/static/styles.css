@@ -438,3 +438,79 @@ select {
     flex-direction: column;
   }
 }
+
+.inline-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.weekday-fieldset {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.weekday-fieldset legend {
+  padding: 0 8px;
+}
+
+.alarm-active-state,
+.alarm-list {
+  display: grid;
+  gap: 14px;
+}
+
+.alarm-status-card,
+.alarm-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.48);
+}
+
+.alarm-status-card.is-active,
+.alarm-card.is-active {
+  border-color: rgba(217, 93, 57, 0.4);
+  background: rgba(217, 93, 57, 0.12);
+}
+
+.alarm-status-card h3,
+.alarm-status-card p,
+.alarm-card h3,
+.alarm-card p {
+  margin: 0;
+}
+
+.alarm-status-card p + p,
+.alarm-card p + p,
+.alarm-card h3 + p {
+  margin-top: 6px;
+}
+
+.alarm-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .inline-fields,
+  .weekday-fieldset {
+    grid-template-columns: 1fr;
+  }
+
+  .alarm-status-card,
+  .alarm-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

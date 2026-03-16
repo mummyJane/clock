@@ -82,6 +82,7 @@
     - on a or multi day at set time
     - delete/disable alarm after alarm stop
     - stop alarm
+- status: done 2026-03-16
 
 ## task 12
 - do release 0.3.0

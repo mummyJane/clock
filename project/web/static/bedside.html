@@ -10,6 +10,14 @@
   <main id="bedsideShell" class="bedside-shell">
     <section id="mediaStage" class="media-stage is-hidden" aria-live="polite"></section>
     <div id="bedsideModules" class="bedside-modules" aria-live="polite"></div>
+    <div id="alarmBanner" class="alarm-banner is-hidden">
+      <div>
+        <p class="clock-label">Alarm</p>
+        <h2 id="alarmBannerTitle">Alarm active</h2>
+        <p id="alarmBannerMeta" class="alarm-banner-meta"></p>
+      </div>
+      <button id="alarmStop" class="control-button" type="button">Stop alarm</button>
+    </div>
     <div id="mediaControls" class="media-controls is-hidden">
       <button id="mediaPlay" class="control-button" type="button">Play</button>
       <button id="mediaPause" class="control-button" type="button">Pause</button>

@@ -10,11 +10,13 @@ import shutil
 import socket
 import subprocess
 import threading
-from datetime import datetime, timezone
+import time
+from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 from urllib.parse import parse_qs, urlparse
 
 
@@ -81,6 +83,7 @@ CLOCK_DISPLAY_TYPES = {"analog", "digital"}
 CLOCK_HOUR_MODES = {"12", "24"}
 CLOCK_DATE_FORMATS = {"dd/mm/yyyy", "mm/dd/yyyy", "yyyy-mm-dd"}
 CLOCK_DISPLAY_SIZES = {"small", "medium", "large"}
+WEEKDAY_KEYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 CLOCK_SCREEN_POSITIONS = {
     "top-left",
     "top-center",
@@ -138,13 +141,25 @@ DEFAULT_MODULES: dict[str, Any] = {
                 "display_size": "large",
                 "screen_position": "center",
             },
-        }
+        },
+        "alarm": {
+            "title": "Alarm",
+            "description": "Schedule bedside alarms that play audio from the media library.",
+            "enabled": False,
+            "settings": {
+                "alarms": [],
+            },
+        },
     }
 }
 
 
 MEDIA_TRANSCODE_LOCK = threading.Lock()
 MEDIA_TRANSCODE_THREADS: dict[str, threading.Thread] = {}
+MODULES_LOCK = threading.Lock()
+ALARM_STATE_LOCK = threading.Lock()
+ACTIVE_ALARM: dict[str, Any] | None = None
+ALARM_SCHEDULER_THREAD: threading.Thread | None = None
 FASTSTART_VIDEO_CODECS = {"h264", "avc1"}
 FASTSTART_AUDIO_CODECS = {"aac", "mp4a", "mp3"}
 
@@ -872,6 +887,85 @@ def validate_clock_settings(payload: Any) -> dict[str, str]:
     }
 
 
+
+def validate_alarm_settings(payload: Any) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise ValueError("Alarm settings must be a JSON object.")
+
+    raw_alarms = payload.get("alarms", [])
+    if not isinstance(raw_alarms, list):
+        raise ValueError("Alarm settings must contain an alarms list.")
+
+    cleaned_alarms: list[dict[str, Any]] = []
+    for index, raw_alarm in enumerate(raw_alarms, start=1):
+        if not isinstance(raw_alarm, dict):
+            raise ValueError("Each alarm must be a JSON object.")
+
+        alarm_id = str(raw_alarm.get("alarm_id", f"alarm-{index}")).strip()[:64]
+        label = str(raw_alarm.get("label", f"Alarm {index}")).strip()[:64] or f"Alarm {index}"
+        enabled = bool(raw_alarm.get("enabled", True))
+        schedule_type = str(raw_alarm.get("schedule_type", "daily")).strip()
+        media_file = clean_media_relative_path(str(raw_alarm.get("media_file", "")).strip())
+        if not media_file:
+            raise ValueError("Alarm media file is required.")
+
+        if media_kind_for_name(media_file) != "audio":
+            raise ValueError("Alarm media file must be a supported audio file.")
+
+        cleaned_alarm: dict[str, Any] = {
+            "alarm_id": alarm_id or f"alarm-{index}",
+            "label": label,
+            "enabled": enabled,
+            "media_file": media_file,
+            "schedule_type": schedule_type,
+            "delete_after_stop": bool(raw_alarm.get("delete_after_stop", False)),
+            "disable_after_stop": bool(raw_alarm.get("disable_after_stop", False)),
+            "fired_at": str(raw_alarm.get("fired_at", "")).strip(),
+            "last_triggered_slot": str(raw_alarm.get("last_triggered_slot", "")).strip(),
+        }
+
+        if schedule_type == "countdown":
+            trigger_at = str(raw_alarm.get("trigger_at", "")).strip()
+            if not trigger_at:
+                raise ValueError("Countdown alarms require a trigger_at value.")
+            try:
+                datetime.fromisoformat(trigger_at.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise ValueError("Countdown alarm trigger_at must be an ISO timestamp.") from exc
+            cleaned_alarm["trigger_at"] = trigger_at
+            cleaned_alarm["time_of_day"] = ""
+            cleaned_alarm["days_of_week"] = []
+        elif schedule_type == "daily":
+            time_of_day = str(raw_alarm.get("time_of_day", "")).strip()
+            try:
+                datetime.strptime(time_of_day, "%H:%M")
+            except ValueError as exc:
+                raise ValueError("Daily alarms require time_of_day in HH:MM format.") from exc
+            cleaned_alarm["trigger_at"] = ""
+            cleaned_alarm["time_of_day"] = time_of_day
+            cleaned_alarm["days_of_week"] = []
+        elif schedule_type == "weekly":
+            time_of_day = str(raw_alarm.get("time_of_day", "")).strip()
+            try:
+                datetime.strptime(time_of_day, "%H:%M")
+            except ValueError as exc:
+                raise ValueError("Weekly alarms require time_of_day in HH:MM format.") from exc
+            raw_days = raw_alarm.get("days_of_week", [])
+            if not isinstance(raw_days, list):
+                raise ValueError("Weekly alarms require a days_of_week list.")
+            days_of_week = [str(day).strip().lower() for day in raw_days if str(day).strip()]
+            if not days_of_week or any(day not in WEEKDAY_KEYS for day in days_of_week):
+                raise ValueError("Weekly alarms require one or more valid weekdays.")
+            cleaned_alarm["trigger_at"] = ""
+            cleaned_alarm["time_of_day"] = time_of_day
+            cleaned_alarm["days_of_week"] = sorted(set(days_of_week), key=WEEKDAY_KEYS.index)
+        else:
+            raise ValueError("Alarm schedule type must be countdown, daily, or weekly.")
+
+        cleaned_alarms.append(cleaned_alarm)
+
+    return {"alarms": cleaned_alarms}
+
 def validate_modules(payload: Any) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError("Modules payload must be a JSON object.")
@@ -893,10 +987,405 @@ def validate_modules(payload: Any) -> dict[str, Any]:
         }
         if module_id == "clock":
             cleaned_module["settings"] = validate_clock_settings(source_module.get("settings", default_module["settings"]))
+        elif module_id == "alarm":
+            cleaned_module["settings"] = validate_alarm_settings(source_module.get("settings", default_module["settings"]))
         cleaned_modules[module_id] = cleaned_module
 
     return {"modules": cleaned_modules}
 
+
+
+def load_modules_state() -> dict[str, Any]:
+    with MODULES_LOCK:
+        return validate_modules(load_json(MODULES_PATH, DEFAULT_MODULES))
+
+
+def save_modules_state(payload: dict[str, Any]) -> dict[str, Any]:
+    modules = validate_modules(payload)
+    with MODULES_LOCK:
+        save_json(MODULES_PATH, modules)
+    return modules
+
+
+def update_modules_state(mutator) -> dict[str, Any]:
+    with MODULES_LOCK:
+        modules = validate_modules(load_json(MODULES_PATH, DEFAULT_MODULES))
+        mutator(modules)
+        cleaned = validate_modules(modules)
+        save_json(MODULES_PATH, cleaned)
+    return cleaned
+
+
+def clock_timezone() -> ZoneInfo:
+    settings = load_json(SETTINGS_PATH, DEFAULT_SETTINGS)
+    timezone_name = str(settings.get("timezone", DEFAULT_SETTINGS["timezone"])).strip() or DEFAULT_SETTINGS["timezone"]
+    try:
+        return ZoneInfo(timezone_name)
+    except Exception:
+        return ZoneInfo(DEFAULT_SETTINGS["timezone"])
+
+
+def current_local_datetime() -> datetime:
+    return datetime.now(clock_timezone())
+
+
+def parse_alarm_timestamp(value: str) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def alarm_slot_for_now(now_local: datetime) -> str:
+    return now_local.strftime("%Y-%m-%dT%H:%M")
+
+
+def alarm_is_due(alarm: dict[str, Any], now_local: datetime) -> bool:
+    if not alarm.get("enabled", True):
+        return False
+
+    schedule_type = str(alarm.get("schedule_type", "")).strip()
+    if schedule_type == "countdown":
+        if str(alarm.get("fired_at", "")).strip():
+            return False
+        trigger_at = parse_alarm_timestamp(str(alarm.get("trigger_at", "")).strip())
+        return trigger_at is not None and datetime.now(timezone.utc) >= trigger_at
+
+    time_of_day = str(alarm.get("time_of_day", "")).strip()
+    if time_of_day != now_local.strftime("%H:%M"):
+        return False
+
+    current_slot = alarm_slot_for_now(now_local)
+    if str(alarm.get("last_triggered_slot", "")).strip() == current_slot:
+        return False
+
+    if schedule_type == "daily":
+        return True
+    if schedule_type == "weekly":
+        return WEEKDAY_KEYS[now_local.weekday()] in set(alarm.get("days_of_week", []))
+    return False
+
+
+def alarm_summary(alarm: dict[str, Any]) -> dict[str, Any]:
+    summary = {
+        "alarm_id": str(alarm.get("alarm_id", "")).strip(),
+        "label": str(alarm.get("label", "")).strip(),
+        "enabled": bool(alarm.get("enabled", False)),
+        "media_file": str(alarm.get("media_file", "")).strip(),
+        "schedule_type": str(alarm.get("schedule_type", "")).strip(),
+        "delete_after_stop": bool(alarm.get("delete_after_stop", False)),
+        "disable_after_stop": bool(alarm.get("disable_after_stop", False)),
+    }
+    if summary["schedule_type"] == "countdown":
+        summary["trigger_at"] = str(alarm.get("trigger_at", "")).strip()
+        summary["fired_at"] = str(alarm.get("fired_at", "")).strip()
+    else:
+        summary["time_of_day"] = str(alarm.get("time_of_day", "")).strip()
+        summary["days_of_week"] = list(alarm.get("days_of_week", []))
+        summary["last_triggered_slot"] = str(alarm.get("last_triggered_slot", "")).strip()
+    return summary
+
+
+def next_alarm_occurrence(alarm: dict[str, Any], now_local: datetime) -> datetime | None:
+    if not alarm.get("enabled", True):
+        return None
+
+    schedule_type = str(alarm.get("schedule_type", "")).strip()
+    if schedule_type == "countdown":
+        if str(alarm.get("fired_at", "")).strip():
+            return None
+        trigger_at = parse_alarm_timestamp(str(alarm.get("trigger_at", "")).strip())
+        if trigger_at is None:
+            return None
+        return trigger_at.astimezone(now_local.tzinfo)
+
+    time_of_day = str(alarm.get("time_of_day", "")).strip()
+    if not time_of_day:
+        return None
+    hour, minute = [int(part) for part in time_of_day.split(":", 1)]
+
+    if schedule_type == "daily":
+        candidate = now_local.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if candidate < now_local:
+            candidate += timedelta(days=1)
+        return candidate
+
+    if schedule_type == "weekly":
+        days = set(alarm.get("days_of_week", []))
+        for offset in range(8):
+            candidate_date = now_local.date() + timedelta(days=offset)
+            if WEEKDAY_KEYS[candidate_date.weekday()] not in days:
+                continue
+            candidate = datetime(
+                candidate_date.year,
+                candidate_date.month,
+                candidate_date.day,
+                hour,
+                minute,
+                tzinfo=now_local.tzinfo,
+            )
+            if candidate >= now_local:
+                return candidate
+        return None
+
+    return None
+
+
+def build_alarm_state() -> dict[str, Any]:
+    modules = load_modules_state()
+    alarms = modules.get("modules", {}).get("alarm", {}).get("settings", {}).get("alarms", [])
+    now_local = current_local_datetime()
+
+    upcoming_alarm = None
+    upcoming_time = None
+    for alarm in alarms:
+        candidate = next_alarm_occurrence(alarm, now_local)
+        if candidate is None:
+            continue
+        if upcoming_time is None or candidate < upcoming_time:
+            upcoming_time = candidate
+            upcoming_alarm = alarm_summary(alarm)
+            upcoming_alarm["next_trigger_at"] = candidate.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    with ALARM_STATE_LOCK:
+        active_alarm = dict(ACTIVE_ALARM) if ACTIVE_ALARM else None
+    if active_alarm:
+        active_alarm.pop("previous_media_state", None)
+
+    return {
+        "active_alarm": active_alarm,
+        "upcoming_alarm": upcoming_alarm,
+        "alarm_count": len(alarms),
+        "enabled_count": sum(1 for alarm in alarms if alarm.get("enabled", True)),
+    }
+
+
+def trigger_alarm(alarm: dict[str, Any], now_local: datetime) -> None:
+    previous_media_state = load_media_state()
+    select_media_file(str(alarm.get("media_file", "")))
+    current_slot = alarm_slot_for_now(now_local)
+
+    def mutator(modules: dict[str, Any]) -> None:
+        for item in modules.get("modules", {}).get("alarm", {}).get("settings", {}).get("alarms", []):
+            if str(item.get("alarm_id", "")).strip() != str(alarm.get("alarm_id", "")).strip():
+                continue
+            if str(item.get("schedule_type", "")).strip() == "countdown":
+                item["fired_at"] = current_timestamp()
+            else:
+                item["last_triggered_slot"] = current_slot
+            break
+
+    update_modules_state(mutator)
+
+    active_alarm = alarm_summary(alarm)
+    active_alarm.update(
+        {
+            "triggered_at": current_timestamp(),
+            "status": "ringing",
+            "can_stop": True,
+            "previous_media_state": previous_media_state,
+        }
+    )
+    with ALARM_STATE_LOCK:
+        global ACTIVE_ALARM
+        ACTIVE_ALARM = active_alarm
+
+
+def process_due_alarms() -> None:
+    with ALARM_STATE_LOCK:
+        if ACTIVE_ALARM is not None:
+            return
+
+    modules = load_modules_state()
+    alarms = modules.get("modules", {}).get("alarm", {}).get("settings", {}).get("alarms", [])
+    now_local = current_local_datetime()
+    for alarm in alarms:
+        if not alarm_is_due(alarm, now_local):
+            continue
+        try:
+            trigger_alarm(alarm, now_local)
+        except ValueError as exc:
+            print(f"Alarm trigger failed for {alarm.get('alarm_id', 'unknown')}: {exc}")
+        break
+
+
+def alarm_scheduler_loop() -> None:
+    while True:
+        try:
+            process_due_alarms()
+        except Exception as exc:
+            print(f"Alarm scheduler error: {exc}")
+        time.sleep(1)
+
+
+def start_alarm_scheduler() -> None:
+    global ALARM_SCHEDULER_THREAD
+    with ALARM_STATE_LOCK:
+        if ALARM_SCHEDULER_THREAD and ALARM_SCHEDULER_THREAD.is_alive():
+            return
+        ALARM_SCHEDULER_THREAD = threading.Thread(target=alarm_scheduler_loop, daemon=True, name="clock-alarm-scheduler")
+        ALARM_SCHEDULER_THREAD.start()
+
+
+def stop_active_alarm() -> dict[str, Any]:
+    with ALARM_STATE_LOCK:
+        global ACTIVE_ALARM
+        if ACTIVE_ALARM is None:
+            raise ValueError("No alarm is active.")
+        active_alarm = dict(ACTIVE_ALARM)
+        ACTIVE_ALARM = None
+
+    previous_media_state = active_alarm.get("previous_media_state") or {}
+    if previous_media_state.get("selected_file"):
+        save_media_state(previous_media_state)
+    else:
+        cleanup_media_temp_files()
+        save_media_state(
+            {
+                "selected_file": "",
+                "selected_kind": "none",
+                "playback_state": "stopped",
+                "playback_status": "idle",
+                "playback_url": "",
+                "message": "",
+                "updated_at": current_timestamp(),
+            }
+        )
+
+    alarm_id = str(active_alarm.get("alarm_id", "")).strip()
+
+    def mutator(modules: dict[str, Any]) -> None:
+        alarms = modules.get("modules", {}).get("alarm", {}).get("settings", {}).get("alarms", [])
+        for index, item in enumerate(list(alarms)):
+            if str(item.get("alarm_id", "")).strip() != alarm_id:
+                continue
+            if item.get("delete_after_stop", False):
+                alarms.pop(index)
+                break
+            if item.get("disable_after_stop", False):
+                item["enabled"] = False
+            break
+
+    modules = update_modules_state(mutator)
+    return {"modules": modules, "alarm_state": build_alarm_state()}
+
+
+def add_alarm(payload: Any) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise ValueError("Alarm payload must be a JSON object.")
+
+    label = str(payload.get("label", "Alarm")).strip()[:64] or "Alarm"
+    media_file = clean_media_relative_path(str(payload.get("media_file", "")).strip())
+    media_path = resolve_media_path(media_file)
+    if not media_path.exists() or not media_path.is_file():
+        raise ValueError(f"Alarm media file does not exist: {media_file}")
+    schedule_type = str(payload.get("schedule_type", "daily")).strip()
+    enabled = bool(payload.get("enabled", True))
+    delete_after_stop = bool(payload.get("delete_after_stop", schedule_type == "countdown"))
+    disable_after_stop = bool(payload.get("disable_after_stop", False))
+    alarm_id = f"alarm-{int(datetime.now(timezone.utc).timestamp() * 1000)}"
+
+    raw_alarm: dict[str, Any] = {
+        "alarm_id": alarm_id,
+        "label": label,
+        "enabled": enabled,
+        "media_file": media_file,
+        "schedule_type": schedule_type,
+        "delete_after_stop": delete_after_stop,
+        "disable_after_stop": disable_after_stop,
+    }
+
+    if schedule_type == "countdown":
+        countdown_value = payload.get("countdown_value")
+        countdown_unit = str(payload.get("countdown_unit", "minutes")).strip()
+        if isinstance(countdown_value, bool):
+            raise ValueError("Countdown value must be a number.")
+        try:
+            countdown_value = int(countdown_value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Countdown value must be a number.") from exc
+        if countdown_value < 1:
+            raise ValueError("Countdown value must be at least 1.")
+        if countdown_unit not in {"minutes", "hours"}:
+            raise ValueError("Countdown unit must be minutes or hours.")
+        delta = timedelta(minutes=countdown_value) if countdown_unit == "minutes" else timedelta(hours=countdown_value)
+        raw_alarm["trigger_at"] = (datetime.now(timezone.utc) + delta).strftime("%Y-%m-%dT%H:%M:%SZ")
+    elif schedule_type in {"daily", "weekly"}:
+        raw_alarm["time_of_day"] = str(payload.get("time_of_day", "")).strip()
+        if schedule_type == "weekly":
+            raw_alarm["days_of_week"] = payload.get("days_of_week", [])
+    else:
+        raise ValueError("Alarm schedule type must be countdown, daily, or weekly.")
+
+    validated_alarm = validate_alarm_settings({"alarms": [raw_alarm]})["alarms"][0]
+
+    def mutator(modules: dict[str, Any]) -> None:
+        modules.get("modules", {}).get("alarm", {}).get("settings", {}).setdefault("alarms", []).append(validated_alarm)
+
+    modules = update_modules_state(mutator)
+    return {"modules": modules, "alarm_state": build_alarm_state()}
+
+
+def set_alarm_enabled(alarm_id: str, enabled: bool) -> dict[str, Any]:
+    updated = False
+
+    def mutator(modules: dict[str, Any]) -> None:
+        nonlocal updated
+        for alarm in modules.get("modules", {}).get("alarm", {}).get("settings", {}).get("alarms", []):
+            if str(alarm.get("alarm_id", "")).strip() == alarm_id:
+                alarm["enabled"] = enabled
+                updated = True
+                break
+
+    modules = update_modules_state(mutator)
+    if not updated:
+        raise ValueError("Alarm not found.")
+    return {"modules": modules, "alarm_state": build_alarm_state()}
+
+
+def delete_alarm(alarm_id: str) -> dict[str, Any]:
+    deleted = False
+
+    def mutator(modules: dict[str, Any]) -> None:
+        nonlocal deleted
+        alarms = modules.get("modules", {}).get("alarm", {}).get("settings", {}).get("alarms", [])
+        for index, alarm in enumerate(list(alarms)):
+            if str(alarm.get("alarm_id", "")).strip() == alarm_id:
+                alarms.pop(index)
+                deleted = True
+                break
+
+    modules = update_modules_state(mutator)
+    if not deleted:
+        raise ValueError("Alarm not found.")
+
+    with ALARM_STATE_LOCK:
+        global ACTIVE_ALARM
+        if ACTIVE_ALARM and str(ACTIVE_ALARM.get("alarm_id", "")).strip() == alarm_id:
+            previous_media_state = ACTIVE_ALARM.get("previous_media_state") or {}
+            ACTIVE_ALARM = None
+            if previous_media_state.get("selected_file"):
+                save_media_state(previous_media_state)
+            else:
+                cleanup_media_temp_files()
+                save_media_state(
+                    {
+                        "selected_file": "",
+                        "selected_kind": "none",
+                        "playback_state": "stopped",
+                        "playback_status": "idle",
+                        "playback_url": "",
+                        "message": "",
+                        "updated_at": current_timestamp(),
+                    }
+                )
+
+    return {"modules": modules, "alarm_state": build_alarm_state()}
 
 def get_ip_addresses() -> list[str]:
     hostnames = {
@@ -920,7 +1409,7 @@ def build_system_state() -> dict[str, Any]:
     release = load_json(RELEASE_PATH, DEFAULT_RELEASE)
     update_status = load_json(UPDATE_STATUS_PATH, DEFAULT_UPDATE_STATUS)
     settings = load_json(SETTINGS_PATH, DEFAULT_SETTINGS)
-    modules = load_json(MODULES_PATH, DEFAULT_MODULES)
+    modules = load_modules_state()
     media_state = load_media_state()
     return {
         "hostname": socket.gethostname(),
@@ -930,6 +1419,7 @@ def build_system_state() -> dict[str, Any]:
         "settings": settings,
         "modules": modules,
         "media_state": media_state,
+        "alarm_state": build_alarm_state(),
     }
 
 
@@ -942,10 +1432,13 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
             self.send_json(load_json(SETTINGS_PATH, DEFAULT_SETTINGS))
             return
         if parsed.path == "/api/modules":
-            self.send_json(load_json(MODULES_PATH, DEFAULT_MODULES))
+            self.send_json(load_modules_state())
             return
         if parsed.path == "/api/system":
             self.send_json(build_system_state())
+            return
+        if parsed.path == "/api/alarm/state":
+            self.send_json(build_alarm_state())
             return
         if parsed.path == "/api/system-status":
             self.send_json(build_system_status())
@@ -991,6 +1484,18 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/media/action":
             self.handle_media_action()
             return
+        if parsed.path == "/api/alarm/add":
+            self.handle_add_alarm()
+            return
+        if parsed.path == "/api/alarm/toggle":
+            self.handle_toggle_alarm()
+            return
+        if parsed.path == "/api/alarm/delete":
+            self.handle_delete_alarm()
+            return
+        if parsed.path == "/api/alarm/stop":
+            self.handle_stop_alarm()
+            return
         self.send_error(HTTPStatus.NOT_FOUND, "Endpoint not found.")
 
     def handle_save_settings(self) -> None:
@@ -1013,8 +1518,7 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
         raw_body = self.rfile.read(content_length)
         try:
             payload = json.loads(raw_body.decode("utf-8"))
-            modules = validate_modules(payload)
-            save_json(MODULES_PATH, modules)
+            modules = save_modules_state(payload)
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             self.send_json({"error": f"Invalid JSON payload: {exc}"}, HTTPStatus.BAD_REQUEST)
             return
@@ -1069,6 +1573,57 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
             self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
             return
         self.send_json(state, HTTPStatus.OK)
+
+
+    def handle_add_alarm(self) -> None:
+        content_length = int(self.headers.get("Content-Length", "0"))
+        raw_body = self.rfile.read(content_length)
+        try:
+            payload = json.loads(raw_body.decode("utf-8"))
+            result = add_alarm(payload)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            self.send_json({"error": f"Invalid JSON payload: {exc}"}, HTTPStatus.BAD_REQUEST)
+            return
+        except ValueError as exc:
+            self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        self.send_json(result, HTTPStatus.OK)
+
+    def handle_toggle_alarm(self) -> None:
+        content_length = int(self.headers.get("Content-Length", "0"))
+        raw_body = self.rfile.read(content_length)
+        try:
+            payload = json.loads(raw_body.decode("utf-8"))
+            result = set_alarm_enabled(str(payload.get("alarm_id", "")).strip(), bool(payload.get("enabled", False)))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            self.send_json({"error": f"Invalid JSON payload: {exc}"}, HTTPStatus.BAD_REQUEST)
+            return
+        except ValueError as exc:
+            self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        self.send_json(result, HTTPStatus.OK)
+
+    def handle_delete_alarm(self) -> None:
+        content_length = int(self.headers.get("Content-Length", "0"))
+        raw_body = self.rfile.read(content_length)
+        try:
+            payload = json.loads(raw_body.decode("utf-8"))
+            result = delete_alarm(str(payload.get("alarm_id", "")).strip())
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            self.send_json({"error": f"Invalid JSON payload: {exc}"}, HTTPStatus.BAD_REQUEST)
+            return
+        except ValueError as exc:
+            self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        self.send_json(result, HTTPStatus.OK)
+
+    def handle_stop_alarm(self) -> None:
+        try:
+            result = stop_active_alarm()
+        except ValueError as exc:
+            self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        self.send_json(result, HTTPStatus.OK)
 
     def serve_static(self, request_path: str) -> None:
         normalized = request_path.lstrip("/") or "index.html"
@@ -1168,6 +1723,7 @@ def main() -> None:
     ensure_parent(MEDIA_STATE_PATH)
     MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
     MEDIA_TEMP_ROOT.mkdir(parents=True, exist_ok=True)
+    start_alarm_scheduler()
     server = ThreadingHTTPServer(("0.0.0.0", port), ClockRequestHandler)
     print(f"Clock setup server listening on http://0.0.0.0:{port}")
     server.serve_forever()

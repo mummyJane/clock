@@ -18,6 +18,11 @@ The server listens on port `8080` by default and serves:
 - `POST /api/settings` to save setup settings, including the local repository path for web update checks
 - `GET /api/modules` for installed module metadata, enabled state, and module settings
 - `POST /api/modules` to save module enabled state and module settings
+- `GET /api/alarm/state` for the currently active alarm and the next upcoming alarm summary
+- `POST /api/alarm/add` to create a countdown, daily, or selected-day alarm that plays an audio file from the media library
+- `POST /api/alarm/toggle` to enable or disable a saved alarm
+- `POST /api/alarm/delete` to remove a saved alarm
+- `POST /api/alarm/stop` to stop the currently active alarm and apply its delete/disable-after-stop behavior
 - `GET /api/update-status` for the last saved update-check result
 - `POST /api/update-status/check` to run `git fetch` and compare the configured local checkout with its upstream branch
 - `GET /api/media/files` to browse the configured media root
@@ -39,13 +44,14 @@ By default the server reads and writes JSON files in `project/web/data/`.
 - `media-state.json`
 - `media/`
 
-The seeded `clock` module settings are:
+The seeded module settings are:
 
-- `display_type`
-- `hour_mode`
-- `date_format`
-- `display_size`
-- `screen_position`
+- `clock.display_type`
+- `clock.hour_mode`
+- `clock.date_format`
+- `clock.display_size`
+- `clock.screen_position`
+- `alarm.alarms`
 
 For deployed installs, the systemd service points those JSON files at `/var/lib/clock/` so enabled modules, settings, and media state survive application updates. The media library itself is exposed from `/var/lib/clock/media` and can be shared over Samba.
 
@@ -63,3 +69,5 @@ Use these environment variables to point at deployment paths:
 Set `CLOCK_POWER_ACTION_MODE=mock` when testing the reboot and halt endpoints in development so the handler reports success without actually powering off the machine.
 
 Use `CLOCK_FFMPEG_BIN` and `CLOCK_FFPROBE_BIN` if `ffmpeg` or `ffprobe` are not on the default path. For selected `.mp4`, `.m4v`, and `.mov` files, the server now first probes the codecs, then prefers a fast MP4 remux when the source already uses browser-friendly H.264/AAC-class codecs, and only falls back to an H.264/AAC preparation pass when re-encoding is required.
+
+The built-in alarm module uses the shared media library paths from Task 10. Alarm playback currently expects supported audio files and restores the previous bedside media selection after the alarm is stopped.

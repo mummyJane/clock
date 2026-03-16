@@ -26,15 +26,34 @@ const mediaSelectionEl = document.getElementById("mediaSelection");
 const mediaBrowserEl = document.getElementById("mediaBrowser");
 const mediaStatusEl = document.getElementById("mediaStatus");
 const clearMediaSelectionEl = document.getElementById("clearMediaSelection");
+const alarmSettingsFormEl = document.getElementById("alarmSettingsForm");
+const alarmFormStatusEl = document.getElementById("alarmFormStatus");
+const alarmListEl = document.getElementById("alarmList");
+const alarmActiveStateEl = document.getElementById("alarmActiveState");
+const alarmUseSelectedMediaEl = document.getElementById("alarmUseSelectedMedia");
+const alarmScheduleTypeEl = document.getElementById("alarmScheduleType");
+const alarmCountdownFieldsEl = document.getElementById("alarmCountdownFields");
+const alarmTimeFieldsEl = document.getElementById("alarmTimeFields");
+const alarmWeekdayFieldsEl = document.getElementById("alarmWeekdayFields");
 
 const basePages = [
   { id: "overview", label: "Overview" },
   { id: "media", label: "Media" },
   { id: "modules", label: "Modules" },
 ];
+const WEEKDAY_LABELS = {
+  mon: "Mon",
+  tue: "Tue",
+  wed: "Wed",
+  thu: "Thu",
+  fri: "Fri",
+  sat: "Sat",
+  sun: "Sun",
+};
 
 let moduleState = { modules: {} };
 let mediaState = { selected_file: "", selected_kind: "none", playback_state: "stopped" };
+let currentAlarmState = { active_alarm: null, upcoming_alarm: null, alarm_count: 0, enabled_count: 0 };
 let currentMediaPath = "";
 
 async function getJson(path, options) {
@@ -263,6 +282,123 @@ function renderMediaBrowser(listing) {
   `;
 }
 
+function formatLocalDateTime(value) {
+  if (!value) {
+    return "Unknown";
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toLocaleString([], {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatAlarmSchedule(alarm) {
+  if (!alarm) {
+    return "No schedule";
+  }
+  if (alarm.schedule_type === "countdown") {
+    return `Once at ${formatLocalDateTime(alarm.trigger_at)}`;
+  }
+  if (alarm.schedule_type === "daily") {
+    return `Every day at ${alarm.time_of_day}`;
+  }
+  if (alarm.schedule_type === "weekly") {
+    const days = (alarm.days_of_week || []).map((day) => WEEKDAY_LABELS[day] || day).join(", ");
+    return `${days} at ${alarm.time_of_day}`;
+  }
+  return alarm.schedule_type || "Unknown";
+}
+
+function alarmStatusText(alarm) {
+  if (currentAlarmState.active_alarm && currentAlarmState.active_alarm.alarm_id === alarm.alarm_id) {
+    return "Ringing now";
+  }
+  if (!alarm.enabled) {
+    return "Disabled";
+  }
+  if (alarm.schedule_type === "countdown" && alarm.fired_at) {
+    return `Completed at ${formatLocalDateTime(alarm.fired_at)}`;
+  }
+  return "Scheduled";
+}
+
+function toggleAlarmFormFields() {
+  const scheduleType = alarmScheduleTypeEl.value;
+  alarmCountdownFieldsEl.hidden = scheduleType !== "countdown";
+  alarmTimeFieldsEl.hidden = scheduleType === "countdown";
+  alarmWeekdayFieldsEl.hidden = scheduleType !== "weekly";
+}
+
+function resetAlarmForm() {
+  alarmSettingsFormEl.reset();
+  document.getElementById("alarmCountdownValue").value = "10";
+  document.getElementById("alarmCountdownUnit").value = "minutes";
+  document.getElementById("alarmTimeOfDay").value = "07:00";
+  document.getElementById("alarmEnabled").checked = true;
+  document.getElementById("alarmDeleteAfterStop").checked = true;
+  document.getElementById("alarmDisableAfterStop").checked = false;
+  toggleAlarmFormFields();
+}
+
+function renderAlarmState(alarmState, alarmModule = moduleState.modules?.alarm) {
+  currentAlarmState = alarmState || currentAlarmState;
+  const activeAlarm = currentAlarmState.active_alarm;
+  const upcomingAlarm = currentAlarmState.upcoming_alarm;
+
+  alarmActiveStateEl.innerHTML = activeAlarm
+    ? `
+      <article class="alarm-status-card is-active">
+        <div>
+          <p class="status-copy">Alarm active</p>
+          <h3>${escapeHtml(activeAlarm.label || "Alarm")}</h3>
+          <p class="support-copy">Playing ${escapeHtml(activeAlarm.media_file || "")}</p>
+          <p class="support-copy">Triggered ${escapeHtml(formatLocalDateTime(activeAlarm.triggered_at))}</p>
+        </div>
+        <button class="primary-button" type="button" data-stop-alarm="true">Stop alarm</button>
+      </article>
+    `
+    : `
+      <article class="alarm-status-card">
+        <div>
+          <p class="status-copy">No alarm active</p>
+          <p class="support-copy">${upcomingAlarm ? `Next: ${escapeHtml(upcomingAlarm.label || "Alarm")} at ${escapeHtml(formatLocalDateTime(upcomingAlarm.next_trigger_at))}` : "No enabled alarms are scheduled."}</p>
+        </div>
+      </article>
+    `;
+
+  const alarms = alarmModule?.settings?.alarms || [];
+  if (!alarms.length) {
+    alarmListEl.innerHTML = '<p class="support-copy">No alarms added yet.</p>';
+    return;
+  }
+
+  alarmListEl.innerHTML = alarms.map((alarm) => `
+    <article class="alarm-card ${currentAlarmState.active_alarm && currentAlarmState.active_alarm.alarm_id === alarm.alarm_id ? "is-active" : ""}">
+      <div>
+        <h3>${escapeHtml(alarm.label || "Alarm")}</h3>
+        <p>${escapeHtml(formatAlarmSchedule(alarm))}</p>
+        <p class="support-copy">Audio: ${escapeHtml(alarm.media_file || "")}</p>
+        <p class="support-copy">Status: ${escapeHtml(alarmStatusText(alarm))}</p>
+      </div>
+      <div class="alarm-card-actions">
+        <button class="ghost-button" type="button" data-toggle-alarm="${escapeHtml(alarm.alarm_id)}" data-enabled="${alarm.enabled ? "false" : "true"}">${alarm.enabled ? "Disable" : "Enable"}</button>
+        <button class="ghost-button" type="button" data-delete-alarm="${escapeHtml(alarm.alarm_id)}">Delete</button>
+      </div>
+    </article>
+  `).join("");
+}
+
+function renderAlarmModule(module) {
+  renderAlarmState(currentAlarmState, module);
+}
+
 function renderSystemState(systemState) {
   hostnameEl.textContent = systemState.hostname || "Unknown";
   ipAddressesEl.textContent = (systemState.ip_addresses || []).join(", ") || "No IPv4 address detected";
@@ -272,6 +408,8 @@ function renderSystemState(systemState) {
   setSettingsForm(systemState.settings || {});
   renderModules(systemState.modules || moduleState);
   renderMediaState(systemState.media_state || mediaState);
+  currentAlarmState = systemState.alarm_state || currentAlarmState;
+  renderAlarmModule((systemState.modules || moduleState).modules?.alarm);
 }
 
 async function loadSystemState() {
@@ -369,6 +507,7 @@ function renderModules(modulesPayload) {
     `)
     .join("");
   renderClockSettings(modulesPayload.modules?.clock);
+  renderAlarmModule(modulesPayload.modules?.alarm);
   ensureVisiblePage();
   renderPageNav();
   renderPages();
@@ -507,6 +646,81 @@ async function sendMediaAction(action) {
   }
 }
 
+function applyAlarmMutation(result) {
+  if (result.modules) {
+    renderModules(result.modules);
+  }
+  if (result.alarm_state) {
+    currentAlarmState = result.alarm_state;
+    renderAlarmModule(result.modules?.modules?.alarm || moduleState.modules?.alarm);
+  }
+}
+
+async function addAlarm(event) {
+  event.preventDefault();
+  alarmFormStatusEl.textContent = "Saving alarm...";
+
+  const payload = {
+    label: document.getElementById("alarmLabel").value,
+    media_file: document.getElementById("alarmMediaFile").value,
+    schedule_type: document.getElementById("alarmScheduleType").value,
+    countdown_value: Number(document.getElementById("alarmCountdownValue").value),
+    countdown_unit: document.getElementById("alarmCountdownUnit").value,
+    time_of_day: document.getElementById("alarmTimeOfDay").value,
+    days_of_week: Array.from(document.querySelectorAll("input[name='alarmDays']:checked")).map((input) => input.value),
+    enabled: document.getElementById("alarmEnabled").checked,
+    delete_after_stop: document.getElementById("alarmDeleteAfterStop").checked,
+    disable_after_stop: document.getElementById("alarmDisableAfterStop").checked,
+  };
+
+  try {
+    const result = await getJson("/api/alarm/add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    applyAlarmMutation(result);
+    alarmFormStatusEl.textContent = "Alarm added.";
+    resetAlarmForm();
+  } catch (error) {
+    alarmFormStatusEl.textContent = error.message;
+  }
+}
+
+async function toggleAlarm(alarmId, enabled) {
+  alarmFormStatusEl.textContent = enabled ? "Enabling alarm..." : "Disabling alarm...";
+  const result = await getJson("/api/alarm/toggle", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ alarm_id: alarmId, enabled }),
+  });
+  applyAlarmMutation(result);
+  alarmFormStatusEl.textContent = enabled ? "Alarm enabled." : "Alarm disabled.";
+}
+
+async function removeAlarm(alarmId) {
+  alarmFormStatusEl.textContent = "Deleting alarm...";
+  const result = await getJson("/api/alarm/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ alarm_id: alarmId }),
+  });
+  applyAlarmMutation(result);
+  alarmFormStatusEl.textContent = "Alarm deleted.";
+}
+
+async function stopAlarm() {
+  alarmFormStatusEl.textContent = "Stopping alarm...";
+  const result = await getJson("/api/alarm/stop", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  applyAlarmMutation(result);
+  await loadMediaState();
+  alarmFormStatusEl.textContent = "Alarm stopped.";
+}
+
 document.getElementById("refreshStatus").addEventListener("click", () => {
   refreshOverview().catch((error) => {
     formStatusEl.textContent = error.message;
@@ -566,6 +780,50 @@ clockSettingsFormEl.addEventListener("change", () => {
   });
 });
 
+alarmSettingsFormEl.addEventListener("submit", (event) => {
+  addAlarm(event);
+});
+
+alarmScheduleTypeEl.addEventListener("change", () => {
+  const scheduleType = alarmScheduleTypeEl.value;
+  document.getElementById("alarmDeleteAfterStop").checked = scheduleType === "countdown";
+  toggleAlarmFormFields();
+});
+
+alarmUseSelectedMediaEl.addEventListener("click", () => {
+  if (mediaState.selected_kind !== "audio" || !mediaState.selected_file) {
+    alarmFormStatusEl.textContent = "Select an audio file on the Media page first.";
+    return;
+  }
+  document.getElementById("alarmMediaFile").value = mediaState.selected_file;
+  alarmFormStatusEl.textContent = "Alarm audio file copied from current media selection.";
+});
+
+alarmListEl.addEventListener("click", (event) => {
+  const toggleButton = event.target.closest("[data-toggle-alarm]");
+  if (toggleButton) {
+    toggleAlarm(toggleButton.dataset.toggleAlarm, toggleButton.dataset.enabled === "true").catch((error) => {
+      alarmFormStatusEl.textContent = error.message;
+    });
+    return;
+  }
+
+  const deleteButton = event.target.closest("[data-delete-alarm]");
+  if (deleteButton) {
+    removeAlarm(deleteButton.dataset.deleteAlarm).catch((error) => {
+      alarmFormStatusEl.textContent = error.message;
+    });
+  }
+});
+
+alarmActiveStateEl.addEventListener("click", (event) => {
+  if (event.target.closest("[data-stop-alarm]")) {
+    stopAlarm().catch((error) => {
+      alarmFormStatusEl.textContent = error.message;
+    });
+  }
+});
+
 window.addEventListener("hashchange", () => {
   ensureVisiblePage();
   renderPageNav();
@@ -575,6 +833,8 @@ window.addEventListener("hashchange", () => {
 formEl.addEventListener("submit", (event) => {
   saveSettings(event);
 });
+
+resetAlarmForm();
 
 Promise.all([refreshOverview(), loadModules(), loadMediaBrowser(""), loadMediaState()]).catch((error) => {
   formStatusEl.textContent = error.message;
