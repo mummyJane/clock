@@ -40,3 +40,5 @@
 - Runtime follow-up: bedside audio now uses a browser-side gain stage with persisted local volume, and touch interaction resumes the media audio path so quiet or previously blocked audio playback is more reliable for audio and video files.
 - Runtime follow-up: selected MP4, M4V, and MOV files now enter a background preparation state instead of being handed straight to Chromium; bedside mode shows a status card until a temporary compatible file is ready or an error is returned.
 - Runtime follow-up: the bedside playback controls now stay active while incompatible video is being prepared, which avoids the browser black-screen lockup path seen when Chromium tried to open unsupported MP4 content directly.
+
+- Runtime follow-up: MP4, M4V, and MOV preparation now probes codecs with `ffprobe`, prefers a fast MP4 remux for H.264/AAC-class sources, and only falls back to an H.264/AAC transcode when re-encoding is required.

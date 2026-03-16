@@ -39,3 +39,5 @@
 - Use ffmpeg as a best-effort local transcode helper for MP4, M4V, and MOV playback, falling back to the source file when ffmpeg is missing or a transcode fails so playback degrades gracefully instead of breaking media selection entirely.
 - Use a Web Audio API gain node with a 0-300 bedside volume range because the native HTML media element volume cap of 1.0 is not enough for the current speaker output level.
 - Prepare incompatible browser video formats in a background worker and expose the result through media state, because synchronous on-request transcoding still let Chromium hit a black-screen failure path before the converted file was ready.
+
+- Prefer codec-probed MP4 remuxing over full re-encode for bedside video preparation, because many phone and camera files are already H.264/AAC and can be made browser-ready much faster with `-c copy` plus `+faststart`.

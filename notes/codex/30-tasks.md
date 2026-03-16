@@ -95,3 +95,7 @@
     - setup
     - 1 or 2 nvme drivers
 - mount NAS (synology)
+
+## Task 10 follow-up 2026-03-16
+- speed up bedside video preparation for MP4, M4V, and MOV files by remuxing browser-compatible sources and using a faster H.264/AAC fallback
+- status: done 2026-03-16

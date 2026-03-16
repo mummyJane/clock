@@ -29,6 +29,7 @@ MEDIA_STATE_PATH = Path(os.environ.get("CLOCK_MEDIA_STATE_FILE", DEFAULT_DATA_RO
 MEDIA_ROOT = Path(os.environ.get("CLOCK_MEDIA_ROOT", DEFAULT_DATA_ROOT / "media"))
 MEDIA_TEMP_ROOT = Path(os.environ.get("CLOCK_MEDIA_TEMP_ROOT", DEFAULT_DATA_ROOT / "media-temp"))
 FFMPEG_BIN = os.environ.get("CLOCK_FFMPEG_BIN", "ffmpeg")
+FFPROBE_BIN = os.environ.get("CLOCK_FFPROBE_BIN", "ffprobe")
 POWER_ACTION_MODE = os.environ.get("CLOCK_POWER_ACTION_MODE", "live")
 THERMAL_PATH = Path("/sys/class/thermal/thermal_zone0/temp")
 POWER_SUPPLY_ROOT = Path("/sys/class/power_supply")
@@ -144,6 +145,8 @@ DEFAULT_MODULES: dict[str, Any] = {
 
 MEDIA_TRANSCODE_LOCK = threading.Lock()
 MEDIA_TRANSCODE_THREADS: dict[str, threading.Thread] = {}
+FASTSTART_VIDEO_CODECS = {"h264", "avc1"}
+FASTSTART_AUDIO_CODECS = {"aac", "mp4a", "mp3"}
 
 
 def ensure_parent(path: Path) -> None:
@@ -359,7 +362,44 @@ def transcoded_media_path_for(file_path: Path) -> Path:
     digest_source = f"{file_path.resolve()}:{stat.st_mtime_ns}:{stat.st_size}"
     digest = hashlib.sha256(digest_source.encode("utf-8")).hexdigest()[:12]
     safe_stem = "".join(character if character.isalnum() else "-" for character in file_path.stem).strip("-") or "media"
-    return MEDIA_TEMP_ROOT / f"{safe_stem}-{digest}.webm"
+    return MEDIA_TEMP_ROOT / f"{safe_stem}-{digest}.mp4"
+
+
+def probe_media_streams(file_path: Path) -> dict[str, str]:
+    command = [
+        FFPROBE_BIN,
+        "-v",
+        "error",
+        "-show_entries",
+        "stream=codec_name,codec_type",
+        "-of",
+        "json",
+        str(file_path),
+    ]
+    result = subprocess.run(command, check=True, capture_output=True, text=True)
+    payload = json.loads(result.stdout or "{}")
+    streams = payload.get("streams", [])
+    if not isinstance(streams, list):
+        return {}
+
+    codecs: dict[str, str] = {}
+    for stream in streams:
+        if not isinstance(stream, dict):
+            continue
+        codec_type = str(stream.get("codec_type", "")).strip()
+        codec_name = str(stream.get("codec_name", "")).strip().lower()
+        if codec_type and codec_name and codec_type not in codecs:
+            codecs[codec_type] = codec_name
+    return codecs
+
+
+def can_remux_for_browser(file_path: Path) -> bool:
+    codecs = probe_media_streams(file_path)
+    video_codec = codecs.get("video", "")
+    audio_codec = codecs.get("audio", "")
+    if video_codec not in FASTSTART_VIDEO_CODECS:
+        return False
+    return not audio_codec or audio_codec in FASTSTART_AUDIO_CODECS
 
 
 def ensure_transcoded_media(file_path: Path) -> Path:
@@ -369,21 +409,40 @@ def ensure_transcoded_media(file_path: Path) -> Path:
     if output_path.exists() and output_path.stat().st_size > 0:
         return output_path
 
-    command = [
-        FFMPEG_BIN,
-        "-y",
-        "-i",
-        str(file_path),
-        "-c:v",
-        "libvpx-vp9",
-        "-c:a",
-        "libopus",
-        "-deadline",
-        "realtime",
-        "-cpu-used",
-        "4",
-        str(output_path),
-    ]
+    if can_remux_for_browser(file_path):
+        command = [
+            FFMPEG_BIN,
+            "-y",
+            "-i",
+            str(file_path),
+            "-c",
+            "copy",
+            "-movflags",
+            "+faststart",
+            str(output_path),
+        ]
+    else:
+        command = [
+            FFMPEG_BIN,
+            "-y",
+            "-i",
+            str(file_path),
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            "-crf",
+            "23",
+            "-pix_fmt",
+            "yuv420p",
+            "-movflags",
+            "+faststart",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "160k",
+            str(output_path),
+        ]
     subprocess.run(command, check=True, capture_output=True, text=True)
     return output_path
 
@@ -420,7 +479,7 @@ def start_media_transcode(selected_file: str, file_path: Path) -> None:
                             **state,
                             "playback_status": "error",
                             "playback_url": "",
-                            "message": "ffmpeg is not installed, so this video cannot be converted for browser playback.",
+                            "message": "ffmpeg or ffprobe is not installed, so this video cannot be prepared for browser playback.",
                             "updated_at": current_timestamp(),
                         }
                     )

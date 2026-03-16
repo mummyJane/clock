@@ -1,4 +1,6 @@
 .history
+.tmp
+.codex*
 build
 *.pyc
 

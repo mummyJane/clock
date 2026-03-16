@@ -138,3 +138,14 @@
 - Validation completed: ran a workspace-local Python smoke test to confirm MP4 selection resolves through a temporary .webm playback file and that clearing media removes the temp transcode file.
 - Follow-up fix: reworked project/web/server.py and project/web/static/bedside.js so MP4, M4V, and MOV files are prepared in the background with a persisted preparing or ready status instead of blocking the bedside browser on direct playback.
 - Validation completed: ran a workspace-local Python smoke test to confirm MP4 selection first returns playback_status=preparing, then updates to playback_status=ready after the background temp .webm file is created.
+
+## 2026-03-16 Task 10 follow-up
+- Re-read AGENTS.md, notes/codex/10-spec.md, notes/codex/20-plan.md, notes/codex/30-tasks.md, and notes/codex/40-context.md before changing the bedside video preparation path.
+- Investigated project/web/server.py and confirmed the current path still did a full VP9/WebM transcode for selected MP4, M4V, and MOV files.
+- Fix applied: updated project/web/server.py so video preparation now probes codecs with ffprobe, writes prepared files as temporary MP4 assets, remuxes H.264/AAC-class sources with `-c copy -movflags +faststart`, and only falls back to an `libx264`/`aac` preparation pass when the source codecs are not browser-friendly.
+- Documentation updated: extended project/web/README.md and notes/codex/40-context.md to describe the faster preparation path and the new `CLOCK_FFPROBE_BIN` override.
+- Decision logged: recorded the remux-first video preparation choice in notes/codex/60-decisions.md.
+- Validation completed: `python -m py_compile project/web/server.py`.
+- Validation completed: ran a workspace-local Python smoke test under `D:\clock\.tmp` to confirm H.264/AAC input takes the fast remux path.
+- Validation completed: ran a workspace-local Python smoke test under `D:\clock\.tmp` to confirm incompatible input falls back to `libx264`/`aac` instead of the previous VP9/WebM path.
+- Tooling issue: `apply_patch` still fails in this Windows workspace with `windows sandbox: setup refresh failed with status exit code: 1`, so this follow-up used PowerShell-mediated file writes again after the patch attempt failed.
