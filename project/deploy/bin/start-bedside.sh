@@ -35,4 +35,5 @@ exec "${BROWSER_BIN}" \
     --noerrdialogs \
     --disable-session-crashed-bubble \
     --disable-infobars \
+    --autoplay-policy=no-user-gesture-required \
     "${CLOCK_BEDSIDE_URL}"

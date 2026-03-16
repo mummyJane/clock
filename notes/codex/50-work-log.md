@@ -171,3 +171,5 @@
 - Validation completed: `node --check project/web/static/app.js`.
 - Validation completed: `node --check project/web/static/bedside.js`.
 - Validation completed: ran a workspace-local Python smoke test under `D:\clock\.tmp` to confirm alarm screen position persists and that an existing alarm can be updated from daily to weekly with a different file and enabled state.
+- Follow-up fix: reduced the bedside audio-card footprint again for the 1024x600 target display, kept alarm audio on native media playback until touch unlocks the gain stage, and added Chromium `--autoplay-policy=no-user-gesture-required` to the kiosk launcher.
+- Validation completed: `node --check project/web/static/bedside.js`.

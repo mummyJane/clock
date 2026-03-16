@@ -34,6 +34,7 @@ let currentMediaError = "";
 let currentVolume = loadStoredVolume();
 let controlsTimer = null;
 let audioContext = null;
+let audioContextUnlocked = false;
 let currentConnectedElement = null;
 let mediaSourceNode = null;
 let mediaGainNode = null;
@@ -230,7 +231,10 @@ function syncVolumeControl() {
   mediaVolumeEl.value = String(Math.round(currentVolume * 100));
 }
 
-function ensureAudioContext() {
+function ensureAudioContext(forceCreate = false) {
+  if (!forceCreate && !audioContextUnlocked) {
+    return null;
+  }
   if (audioContext) {
     return audioContext;
   }
@@ -291,7 +295,8 @@ function applyMediaVolume() {
 }
 
 async function resumeMediaPlayback() {
-  const context = ensureAudioContext();
+  audioContextUnlocked = true;
+  const context = ensureAudioContext(true);
   if (context && context.state === "suspended") {
     try {
       await context.resume();

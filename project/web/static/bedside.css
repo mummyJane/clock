@@ -156,21 +156,21 @@ body {
 
 .media-audio-card,
 .module-empty {
-  width: min(640px, calc(100vw - 32px));
+  width: min(560px, calc(100vw - 24px));
   max-width: 100%;
-  padding: 32px;
+  padding: 24px;
 }
 
 .media-stage.kind-audio {
   position: fixed;
   inset: 0;
   min-height: 100vh;
-  padding: 108px 16px 132px;
+  padding: 88px 12px 110px;
   background: radial-gradient(circle at top, rgba(73, 127, 191, 0.12), transparent 35%), linear-gradient(180deg, #09121d 0%, var(--bg) 100%);
 }
 
 .media-stage.kind-audio .media-audio-card {
-  max-height: calc(100vh - 260px);
+  max-height: calc(100vh - 210px);
   overflow: auto;
 }
 
@@ -180,6 +180,11 @@ body {
 .module-empty p,
 .bedside-card p {
   margin: 0;
+}
+
+.media-audio-card h1 {
+  font-size: clamp(1.8rem, 4.2vw, 2.8rem);
+  line-height: 1.05;
 }
 
 .media-audio-card p,

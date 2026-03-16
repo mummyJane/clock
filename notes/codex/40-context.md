@@ -49,3 +49,5 @@
 
 - Task 11 follow-up: the Alarm module now also stores its own bedside screen position, supports in-place alarm editing, and includes an inline audio-file picker built from the shared media browser APIs.
 - Task 11 follow-up: bedside audio playback now uses a fixed full-screen audio stage so the audio card no longer pushes module content off-screen or creates a scroll path.
+
+- Task 11 follow-up: bedside audio now keeps using native media playback until touch unlocks the Web Audio gain stage, and the kiosk launcher now passes Chromium autoplay policy flags so alarm audio can start without the first manual tap.
