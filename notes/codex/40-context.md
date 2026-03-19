@@ -58,3 +58,5 @@
 
 - Task 14 adds a Storage page to the setup UI for USB, NVMe, and NAS mount planning, including detected-device listing plus saved mount entries.
 - Storage plans are now persisted in `storage.json`, and deployed installs can apply them through a root-owned helper that updates a managed Clock block in `/etc/fstab` and writes SMB credential files under `/etc/clock/storage-credentials`.
+- Task 14 refinement: the Storage page is now split into dedicated NVMe, USB, and Samba sections, with detected-device lists for the local-drive sections and direct SMB credentials fields for Samba shares.
+- Task 14 refinement: local storage entries now carry explicit `auto_mount` and `format_if_needed` flags, and formatting only runs for blank local devices when the operator enables that option.

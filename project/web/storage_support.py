@@ -24,6 +24,14 @@ DEFAULT_LOCAL_OPTIONS = "defaults,nofail,x-systemd.device-timeout=10"
 DEFAULT_NAS_OPTIONS = "iocharset=utf8,nofail,x-systemd.automount,_netdev,uid=clock,gid=clock,file_mode=0664,dir_mode=0775"
 ENTRY_ID_PATTERN = re.compile(r"[^a-z0-9-]+")
 FILESYSTEM_PATTERN = re.compile(r"^[A-Za-z0-9._+-]{1,32}$")
+FILESYSTEM_FORMATTERS = {
+    "ext4": ["mkfs.ext4", "-F"],
+    "ext3": ["mkfs.ext3", "-F"],
+    "ext2": ["mkfs.ext2", "-F"],
+    "vfat": ["mkfs.vfat"],
+    "fat32": ["mkfs.vfat", "-F", "32"],
+    "exfat": ["mkfs.exfat", "-f"],
+}
 
 
 def current_timestamp() -> str:
@@ -97,6 +105,7 @@ def validate_storage_entry(payload: Any, index: int) -> dict[str, Any]:
     entry_id = slugify(str(payload.get("entry_id", "")).strip() or label or f"storage-{index}")
     mount_point = normalize_mount_point(str(payload.get("mount_point", "")).strip())
     enabled = bool(payload.get("enabled", True))
+    auto_mount = bool(payload.get("auto_mount", True))
     options = normalize_options(str(payload.get("options", "")).strip())
 
     entry: dict[str, Any] = {
@@ -104,6 +113,8 @@ def validate_storage_entry(payload: Any, index: int) -> dict[str, Any]:
         "label": label,
         "kind": kind,
         "enabled": enabled,
+        "auto_mount": auto_mount,
+        "format_if_needed": bool(payload.get("format_if_needed", False)),
         "mount_point": mount_point,
         "options": options or (DEFAULT_NAS_OPTIONS if kind == "nas" else DEFAULT_LOCAL_OPTIONS),
     }
@@ -113,6 +124,8 @@ def validate_storage_entry(payload: Any, index: int) -> dict[str, Any]:
         filesystem = str(payload.get("filesystem", "auto")).strip().lower() or "auto"
         if filesystem != "auto" and not FILESYSTEM_PATTERN.match(filesystem):
             raise ValueError("Local filesystem must be auto or a simple filesystem name such as ext4 or exfat.")
+        if entry["format_if_needed"] and filesystem == "auto":
+            raise ValueError("Format if needed requires a specific filesystem such as ext4 or exfat.")
         entry["source"] = source
         entry["filesystem"] = filesystem
         entry["host"] = ""
@@ -136,6 +149,7 @@ def validate_storage_entry(payload: Any, index: int) -> dict[str, Any]:
         entry["password"] = str(payload.get("password", "")).strip()[:256]
         entry["domain"] = str(payload.get("domain", "")).strip()[:128]
         entry["version"] = str(payload.get("version", "3.0")).strip()[:32] or "3.0"
+        entry["format_if_needed"] = False
 
     return entry
 
@@ -260,6 +274,10 @@ def build_storage_overview(config: dict[str, Any], mounts: list[dict[str, Any]] 
             "usb": sum(1 for item in devices if item.get("storage_class") == "usb"),
             "nvme": sum(1 for item in devices if item.get("storage_class") == "nvme"),
         },
+        "detected_groups": {
+            "usb": [item for item in devices if item.get("storage_class") == "usb"],
+            "nvme": [item for item in devices if item.get("storage_class") == "nvme"],
+        },
         "active_mounts": active_mounts,
     }
 
@@ -286,7 +304,8 @@ def render_storage_preview(config: dict[str, Any], credentials_dir: Path) -> dic
         else:
             filesystem = entry.get("filesystem", "auto") or "auto"
             passno = "2" if filesystem != "auto" else "0"
-            lines.append(f"{entry['source']} {entry['mount_point']} {filesystem} {entry['options']} 0 {passno}")
+            options = build_local_options(entry)
+            lines.append(f"{entry['source']} {entry['mount_point']} {filesystem} {options} 0 {passno}")
 
     lines.append(FSTAB_END_MARKER)
     return {
@@ -299,6 +318,12 @@ def render_storage_preview(config: dict[str, Any], credentials_dir: Path) -> dic
 
 def build_nas_options(entry: dict[str, Any], credentials_dir: Path) -> str:
     options = [part for part in normalize_options(entry.get("options", DEFAULT_NAS_OPTIONS)).split(",") if part]
+    if entry.get("auto_mount", True):
+        if "x-systemd.automount" not in options:
+            options.append("x-systemd.automount")
+    else:
+        options = [part for part in options if part != "x-systemd.automount"]
+
     version = str(entry.get("version", "")).strip()
     if version and not any(part.startswith("vers=") for part in options):
         options.append(f"vers={version}")
@@ -315,6 +340,20 @@ def build_nas_options(entry: dict[str, Any], credentials_dir: Path) -> str:
     else:
         options.append("guest")
 
+    return dedupe_options(options)
+
+
+def build_local_options(entry: dict[str, Any]) -> str:
+    options = [part for part in normalize_options(entry.get("options", DEFAULT_LOCAL_OPTIONS)).split(",") if part]
+    if entry.get("auto_mount", True):
+        if "x-systemd.automount" not in options:
+            options.append("x-systemd.automount")
+    else:
+        options = [part for part in options if part != "x-systemd.automount"]
+    return dedupe_options(options)
+
+
+def dedupe_options(options: list[str]) -> str:
     deduped: list[str] = []
     seen: set[str] = set()
     for option in options:
@@ -335,6 +374,7 @@ def apply_storage_config_file(config_path: Path, fstab_path: Path, credentials_d
     preview = render_storage_preview(config, credentials_dir)
 
     credentials_dir.mkdir(parents=True, exist_ok=True)
+    prepare_local_filesystems(config)
     write_fstab_block(fstab_path, preview["fstab_preview"])
     ensure_mount_points(preview["mount_points"])
     write_credentials(config, credentials_dir)
@@ -358,6 +398,38 @@ def apply_storage_config_file(config_path: Path, fstab_path: Path, credentials_d
     }
     save_storage_config(config_path, config)
     return result
+
+
+def prepare_local_filesystems(config: dict[str, Any]) -> None:
+    for entry in config.get("entries", []):
+        if not entry.get("enabled", True):
+            continue
+        if entry.get("kind") not in {"usb", "nvme"}:
+            continue
+        if not entry.get("format_if_needed", False):
+            continue
+        filesystem = str(entry.get("filesystem", "auto")).strip().lower()
+        source = str(entry.get("source", "")).strip()
+        if filesystem == "auto" or not source:
+            continue
+        if detect_filesystem(source):
+            continue
+        format_device(source, filesystem)
+
+
+def detect_filesystem(source: str) -> str:
+    try:
+        result = subprocess.run(["blkid", "-o", "value", "-s", "TYPE", source], check=True, capture_output=True, text=True)
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return ""
+    return result.stdout.strip().lower()
+
+
+def format_device(source: str, filesystem: str) -> None:
+    command = FILESYSTEM_FORMATTERS.get(filesystem)
+    if command is None:
+        raise ValueError(f"Formatting is not supported for filesystem {filesystem}.")
+    subprocess.run([*command, source], check=True, capture_output=True, text=True)
 
 
 def write_fstab_block(fstab_path: Path, block: str) -> None:

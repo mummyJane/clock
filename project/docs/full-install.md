@@ -86,9 +86,10 @@ If you want to test the power endpoints without actually rebooting the Pi, set `
 
 ## Storage page
 
-Task 14 adds a Storage page where you can:
+Task 14 adds a Storage page with separate sections for:
 
-- detect attached USB and NVMe devices
-- save one or more local mount definitions using absolute device paths such as `/dev/disk/by-uuid/...`
-- save SMB NAS mounts for Synology shares using host, share, username, and password
-- apply the saved storage plan so the device writes a managed Clock block into `/etc/fstab` and mounts those entries
+- NVMe: detect the PCIe drives, choose one, set the mount point, decide whether it should auto-mount, and optionally format it when no filesystem is present yet
+- USB: scan attached USB drives, choose one from the detected list, and save a mount plan with its own mount point and auto-mount settings
+- Samba: set the server path, share name, username, password, domain, SMB version, and mount point for Synology-style SMB shares
+
+Applying the saved plan writes a managed Clock block into `/etc/fstab`, writes Samba credential files under `/etc/clock/storage-credentials`, optionally formats local drives only when `format if needed` is enabled and no filesystem exists, and then mounts the configured entries.

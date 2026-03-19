@@ -203,3 +203,7 @@
 - Validation completed: `node --check project/web/static/app.js`.
 - Validation completed: ran a workspace-local Python smoke test under `D:\clock\.codex-temp-tests\task14-storage` to save storage entries and apply them in `CLOCK_STORAGE_ACTION_MODE=mock`.
 - Runtime portability fix: storage path validation initially used host-platform absolute-path checks, which rejected Linux mount paths in this Windows workspace; switched the validator to use `PurePosixPath` so development and Pi deployment agree on valid mount paths.
+- Task 14 refinement: split the Storage page into separate NVMe, USB, and Samba sections so each workflow has its own form and detected-device list where appropriate.
+- Task 14 refinement: added explicit `auto_mount` and `format_if_needed` fields to local storage entries, and updated the privileged storage helper to honor auto-mount options and only format blank local devices when the operator asked for it.
+- Validation completed: reran `python -m py_compile project/web/server.py project/web/storage_support.py`, `node --check project/web/static/app.js`, and a refined mock storage smoke test under `D:\clock\.codex-temp-tests\task14-storage-refine`.
+

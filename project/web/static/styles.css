@@ -524,3 +524,12 @@ select {
 .storage-grid .panel-form {
   grid-column: span 5;
 }
+
+
+.storage-entry-form {
+  margin-top: 18px;
+}
+
+.storage-entry-group h3 {
+  margin: 0 0 12px;
+}

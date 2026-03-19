@@ -50,17 +50,24 @@ const storageNvmeCountEl = document.getElementById("storageNvmeCount");
 const storageEntryCountEl = document.getElementById("storageEntryCount");
 const storageLastApplyEl = document.getElementById("storageLastApply");
 const storageApplySummaryEl = document.getElementById("storageApplySummary");
-const storageFormEl = document.getElementById("storageForm");
-const storageFormStatusEl = document.getElementById("storageFormStatus");
 const storageEntriesEl = document.getElementById("storageEntries");
-const storageDeviceListEl = document.getElementById("storageDeviceList");
-const storageEditorTitleEl = document.getElementById("storageEditorTitle");
-const storageSubmitButtonEl = document.getElementById("storageSubmitButton");
-const storageCancelEditEl = document.getElementById("storageCancelEdit");
-const storageEntryIdEl = document.getElementById("storageEntryId");
-const storageKindEl = document.getElementById("storageKind");
-const storageLocalFieldsEl = document.getElementById("storageLocalFields");
-const storageNasFieldsEl = document.getElementById("storageNasFields");
+const storageUsbDevicesEl = document.getElementById("storageUsbDevices");
+const storageNvmeDevicesEl = document.getElementById("storageNvmeDevices");
+const nvmeStorageFormEl = document.getElementById("nvmeStorageForm");
+const nvmeFormStatusEl = document.getElementById("nvmeFormStatus");
+const nvmeEntryIdEl = document.getElementById("nvmeEntryId");
+const nvmeSubmitButtonEl = document.getElementById("nvmeSubmitButton");
+const nvmeCancelEditEl = document.getElementById("nvmeCancelEdit");
+const usbStorageFormEl = document.getElementById("usbStorageForm");
+const usbFormStatusEl = document.getElementById("usbFormStatus");
+const usbEntryIdEl = document.getElementById("usbEntryId");
+const usbSubmitButtonEl = document.getElementById("usbSubmitButton");
+const usbCancelEditEl = document.getElementById("usbCancelEdit");
+const sambaStorageFormEl = document.getElementById("sambaStorageForm");
+const sambaFormStatusEl = document.getElementById("sambaFormStatus");
+const sambaEntryIdEl = document.getElementById("sambaEntryId");
+const sambaSubmitButtonEl = document.getElementById("sambaSubmitButton");
+const sambaCancelEditEl = document.getElementById("sambaCancelEdit");
 
 const basePages = [
   { id: "overview", label: "Overview" },
@@ -516,77 +523,204 @@ function renderAlarmFileBrowser(listing) {
 }
 
 
-function toggleStorageFields() {
-  const isNas = storageKindEl.value === "nas";
-  storageLocalFieldsEl.hidden = isNas;
-  storageNasFieldsEl.hidden = !isNas;
-}
-
-function resetStorageForm() {
-  storageFormEl.reset();
-  storageEntryIdEl.value = "";
-  storageEditorTitleEl.textContent = "Add storage mount";
-  storageSubmitButtonEl.textContent = "Add mount";
-  storageCancelEditEl.hidden = true;
-  document.getElementById("storageFilesystem").value = "auto";
-  document.getElementById("storageVersion").value = "3.0";
-  document.getElementById("storageEnabled").checked = true;
-  storageKindEl.value = "usb";
-  toggleStorageFields();
-}
-
-function setStorageForm(entry) {
-  storageEntryIdEl.value = entry.entry_id || "";
-  document.getElementById("storageLabel").value = entry.label || "";
-  storageKindEl.value = entry.kind || "usb";
-  document.getElementById("storageSource").value = entry.source || "";
-  document.getElementById("storageFilesystem").value = entry.filesystem || "auto";
-  document.getElementById("storageHost").value = entry.host || "";
-  document.getElementById("storageShare").value = entry.share || "";
-  document.getElementById("storageUsername").value = entry.username || "";
-  document.getElementById("storagePassword").value = entry.password || "";
-  document.getElementById("storageDomain").value = entry.domain || "";
-  document.getElementById("storageVersion").value = entry.version || "3.0";
-  document.getElementById("storageMountPoint").value = entry.mount_point || "";
-  document.getElementById("storageOptions").value = entry.options || "";
-  document.getElementById("storageEnabled").checked = Boolean(entry.enabled);
-  storageEditorTitleEl.textContent = `Edit ${entry.label || "storage"}`;
-  storageSubmitButtonEl.textContent = "Save mount";
-  storageCancelEditEl.hidden = false;
-  toggleStorageFields();
-}
-
-function buildStoragePayload() {
+function getStorageFormConfig(kind) {
+  if (kind === "nvme") {
+    return {
+      kind,
+      form: nvmeStorageFormEl,
+      entryId: nvmeEntryIdEl,
+      status: nvmeFormStatusEl,
+      submit: nvmeSubmitButtonEl,
+      cancel: nvmeCancelEditEl,
+      defaults: {
+        label: "",
+        source: "",
+        mount_point: "/mnt/nvme-main",
+        filesystem: "ext4",
+        options: "",
+        auto_mount: true,
+        format_if_needed: false,
+        enabled: true,
+      },
+    };
+  }
+  if (kind === "usb") {
+    return {
+      kind,
+      form: usbStorageFormEl,
+      entryId: usbEntryIdEl,
+      status: usbFormStatusEl,
+      submit: usbSubmitButtonEl,
+      cancel: usbCancelEditEl,
+      defaults: {
+        label: "",
+        source: "",
+        mount_point: "/mnt/usb-media",
+        filesystem: "auto",
+        options: "",
+        auto_mount: true,
+        format_if_needed: false,
+        enabled: true,
+      },
+    };
+  }
   return {
-    entry_id: storageEntryIdEl.value,
-    label: document.getElementById("storageLabel").value,
-    kind: storageKindEl.value,
-    source: document.getElementById("storageSource").value,
-    filesystem: document.getElementById("storageFilesystem").value,
-    host: document.getElementById("storageHost").value,
-    share: document.getElementById("storageShare").value,
-    username: document.getElementById("storageUsername").value,
-    password: document.getElementById("storagePassword").value,
-    domain: document.getElementById("storageDomain").value,
-    version: document.getElementById("storageVersion").value,
-    mount_point: document.getElementById("storageMountPoint").value,
-    options: document.getElementById("storageOptions").value,
-    enabled: document.getElementById("storageEnabled").checked,
+    kind: "nas",
+    form: sambaStorageFormEl,
+    entryId: sambaEntryIdEl,
+    status: sambaFormStatusEl,
+    submit: sambaSubmitButtonEl,
+    cancel: sambaCancelEditEl,
+    defaults: {
+      label: "",
+      host: "",
+      share: "",
+      mount_point: "/mnt/nas-media",
+      username: "",
+      password: "",
+      domain: "",
+      version: "3.0",
+      options: "",
+      auto_mount: true,
+      enabled: true,
+    },
   };
 }
 
-function renderStorageDevices(devices) {
+function setStorageStatus(kind, message) {
+  getStorageFormConfig(kind).status.textContent = message;
+}
+
+function resetStorageForm(kind) {
+  const config = getStorageFormConfig(kind);
+  config.form.reset();
+  config.entryId.value = "";
+  config.submit.textContent = kind === "nas" ? "Save Samba share" : `Save ${titleCase(kind)} mount`;
+  config.cancel.hidden = true;
+
+  if (kind === "nvme") {
+    document.getElementById("nvmeMountPoint").value = config.defaults.mount_point;
+    document.getElementById("nvmeFilesystem").value = config.defaults.filesystem;
+    document.getElementById("nvmeAutoMount").checked = true;
+    document.getElementById("nvmeFormatIfNeeded").checked = false;
+    document.getElementById("nvmeEnabled").checked = true;
+  } else if (kind === "usb") {
+    document.getElementById("usbMountPoint").value = config.defaults.mount_point;
+    document.getElementById("usbFilesystem").value = config.defaults.filesystem;
+    document.getElementById("usbAutoMount").checked = true;
+    document.getElementById("usbFormatIfNeeded").checked = false;
+    document.getElementById("usbEnabled").checked = true;
+  } else {
+    document.getElementById("sambaMountPoint").value = config.defaults.mount_point;
+    document.getElementById("sambaVersion").value = config.defaults.version;
+    document.getElementById("sambaAutoMount").checked = true;
+    document.getElementById("sambaEnabled").checked = true;
+  }
+}
+
+function resetAllStorageForms() {
+  resetStorageForm("nvme");
+  resetStorageForm("usb");
+  resetStorageForm("nas");
+}
+
+function readStoragePayload(kind) {
+  if (kind === "nvme") {
+    return {
+      entry_id: nvmeEntryIdEl.value,
+      label: document.getElementById("nvmeLabel").value,
+      kind,
+      source: document.getElementById("nvmeSource").value,
+      mount_point: document.getElementById("nvmeMountPoint").value,
+      filesystem: document.getElementById("nvmeFilesystem").value,
+      options: document.getElementById("nvmeOptions").value,
+      auto_mount: document.getElementById("nvmeAutoMount").checked,
+      format_if_needed: document.getElementById("nvmeFormatIfNeeded").checked,
+      enabled: document.getElementById("nvmeEnabled").checked,
+    };
+  }
+  if (kind === "usb") {
+    return {
+      entry_id: usbEntryIdEl.value,
+      label: document.getElementById("usbLabel").value,
+      kind,
+      source: document.getElementById("usbSource").value,
+      mount_point: document.getElementById("usbMountPoint").value,
+      filesystem: document.getElementById("usbFilesystem").value,
+      options: document.getElementById("usbOptions").value,
+      auto_mount: document.getElementById("usbAutoMount").checked,
+      format_if_needed: document.getElementById("usbFormatIfNeeded").checked,
+      enabled: document.getElementById("usbEnabled").checked,
+    };
+  }
+  return {
+    entry_id: sambaEntryIdEl.value,
+    label: document.getElementById("sambaLabel").value,
+    kind: "nas",
+    host: document.getElementById("sambaHost").value,
+    share: document.getElementById("sambaShare").value,
+    mount_point: document.getElementById("sambaMountPoint").value,
+    username: document.getElementById("sambaUsername").value,
+    password: document.getElementById("sambaPassword").value,
+    domain: document.getElementById("sambaDomain").value,
+    version: document.getElementById("sambaVersion").value,
+    options: document.getElementById("sambaOptions").value,
+    auto_mount: document.getElementById("sambaAutoMount").checked,
+    enabled: document.getElementById("sambaEnabled").checked,
+  };
+}
+
+function populateStorageForm(entry) {
+  const kind = entry.kind === "nas" ? "nas" : entry.kind;
+  const config = getStorageFormConfig(kind);
+  config.entryId.value = entry.entry_id || "";
+  config.submit.textContent = kind === "nas" ? "Save Samba share" : `Save ${titleCase(kind)} mount`;
+  config.cancel.hidden = false;
+
+  if (kind === "nvme") {
+    document.getElementById("nvmeLabel").value = entry.label || "";
+    document.getElementById("nvmeSource").value = entry.source || "";
+    document.getElementById("nvmeMountPoint").value = entry.mount_point || "/mnt/nvme-main";
+    document.getElementById("nvmeFilesystem").value = entry.filesystem || "ext4";
+    document.getElementById("nvmeOptions").value = entry.options || "";
+    document.getElementById("nvmeAutoMount").checked = entry.auto_mount !== false;
+    document.getElementById("nvmeFormatIfNeeded").checked = Boolean(entry.format_if_needed);
+    document.getElementById("nvmeEnabled").checked = Boolean(entry.enabled);
+  } else if (kind === "usb") {
+    document.getElementById("usbLabel").value = entry.label || "";
+    document.getElementById("usbSource").value = entry.source || "";
+    document.getElementById("usbMountPoint").value = entry.mount_point || "/mnt/usb-media";
+    document.getElementById("usbFilesystem").value = entry.filesystem || "auto";
+    document.getElementById("usbOptions").value = entry.options || "";
+    document.getElementById("usbAutoMount").checked = entry.auto_mount !== false;
+    document.getElementById("usbFormatIfNeeded").checked = Boolean(entry.format_if_needed);
+    document.getElementById("usbEnabled").checked = Boolean(entry.enabled);
+  } else {
+    document.getElementById("sambaLabel").value = entry.label || "";
+    document.getElementById("sambaHost").value = entry.host || "";
+    document.getElementById("sambaShare").value = entry.share || "";
+    document.getElementById("sambaMountPoint").value = entry.mount_point || "/mnt/nas-media";
+    document.getElementById("sambaUsername").value = entry.username || "";
+    document.getElementById("sambaPassword").value = entry.password || "";
+    document.getElementById("sambaDomain").value = entry.domain || "";
+    document.getElementById("sambaVersion").value = entry.version || "3.0";
+    document.getElementById("sambaOptions").value = entry.options || "";
+    document.getElementById("sambaAutoMount").checked = entry.auto_mount !== false;
+    document.getElementById("sambaEnabled").checked = Boolean(entry.enabled);
+  }
+}
+
+function renderDetectedStorageTable(devices, container, kind) {
   if (!devices.length) {
-    storageDeviceListEl.innerHTML = '<p class="support-copy">No USB or NVMe devices detected right now.</p>';
+    container.innerHTML = `<p class="support-copy">No ${kind.toUpperCase()} devices detected right now.</p>`;
     return;
   }
 
-  storageDeviceListEl.innerHTML = `
+  container.innerHTML = `
     <table class="mount-table">
       <thead>
         <tr>
-          <th>Type</th>
-          <th>Path</th>
+          <th>Device</th>
           <th>Filesystem</th>
           <th>Size</th>
           <th>Mounted at</th>
@@ -596,12 +730,14 @@ function renderStorageDevices(devices) {
       <tbody>
         ${devices.map((device) => `
           <tr>
-            <td>${escapeHtml(titleCase(device.storage_class || device.transport || device.type || "device"))}</td>
-            <td>${escapeHtml(device.path)}</td>
-            <td>${escapeHtml(device.filesystem || "Unknown")}</td>
+            <td>
+              <strong>${escapeHtml(device.path)}</strong><br>
+              <span class="support-copy">${escapeHtml(device.label || device.model || device.name || "Unnamed")}</span>
+            </td>
+            <td>${escapeHtml(device.filesystem || "None")}</td>
             <td>${escapeHtml(device.size || "Unknown")}</td>
             <td>${escapeHtml(device.mount_point || "Not mounted")}</td>
-            <td><button class="ghost-button" type="button" data-storage-device="${escapeHtml(device.path)}" data-storage-kind="${escapeHtml(device.storage_class || "usb")}" data-storage-filesystem="${escapeHtml(device.filesystem || "auto")}">Use</button></td>
+            <td><button class="ghost-button" type="button" data-storage-use="${escapeHtml(kind)}" data-storage-path="${escapeHtml(device.path)}" data-storage-filesystem="${escapeHtml(device.filesystem || (kind === "nvme" ? "ext4" : "auto"))}">Use</button></td>
           </tr>
         `).join("")}
       </tbody>
@@ -615,33 +751,54 @@ function renderStorageEntries(entries) {
     return;
   }
 
-  storageEntriesEl.innerHTML = entries.map((entry) => `
-    <article class="alarm-card ${entry.is_mounted ? "is-active" : ""}">
-      <div>
-        <h3>${escapeHtml(entry.label)}</h3>
-        <p>${escapeHtml(titleCase(entry.kind))} | ${escapeHtml(entry.mount_point)}</p>
-        <p class="support-copy">Source: ${escapeHtml(entry.source)}</p>
-        <p class="support-copy">Status: ${entry.enabled ? (entry.is_mounted ? "Mounted" : "Enabled, waiting to mount") : "Disabled"}</p>
-      </div>
-      <div class="alarm-card-actions">
-        <button class="ghost-button" type="button" data-edit-storage="${escapeHtml(entry.entry_id)}">Edit</button>
-        <button class="ghost-button" type="button" data-toggle-storage="${escapeHtml(entry.entry_id)}" data-enabled="${entry.enabled ? "false" : "true"}">${entry.enabled ? "Disable" : "Enable"}</button>
-        <button class="ghost-button" type="button" data-delete-storage="${escapeHtml(entry.entry_id)}">Delete</button>
-      </div>
-    </article>
-  `).join("");
+  const groups = {
+    nvme: entries.filter((entry) => entry.kind === "nvme"),
+    usb: entries.filter((entry) => entry.kind === "usb"),
+    nas: entries.filter((entry) => entry.kind === "nas"),
+  };
+
+  storageEntriesEl.innerHTML = Object.entries(groups).map(([kind, items]) => {
+    if (!items.length) {
+      return "";
+    }
+    return `
+      <section class="storage-entry-group">
+        <h3>${escapeHtml(kind === "nas" ? "Samba shares" : titleCase(kind))}</h3>
+        <div class="alarm-list">
+          ${items.map((entry) => `
+            <article class="alarm-card ${entry.is_mounted ? "is-active" : ""}">
+              <div>
+                <h3>${escapeHtml(entry.label)}</h3>
+                <p>${escapeHtml(entry.mount_point)}</p>
+                <p class="support-copy">Source: ${escapeHtml(entry.source)}</p>
+                <p class="support-copy">${entry.enabled ? (entry.is_mounted ? "Mounted" : "Enabled") : "Disabled"} | Auto-mount: ${entry.auto_mount === false ? "No" : "Yes"}${entry.kind !== "nas" ? ` | Format if needed: ${entry.format_if_needed ? "Yes" : "No"}` : ""}</p>
+              </div>
+              <div class="alarm-card-actions">
+                <button class="ghost-button" type="button" data-edit-storage="${escapeHtml(entry.entry_id)}">Edit</button>
+                <button class="ghost-button" type="button" data-toggle-storage="${escapeHtml(entry.entry_id)}" data-enabled="${entry.enabled ? "false" : "true"}">${entry.enabled ? "Disable" : "Enable"}</button>
+                <button class="ghost-button" type="button" data-delete-storage="${escapeHtml(entry.entry_id)}">Delete</button>
+              </div>
+            </article>
+          `).join("")}
+        </div>
+      </section>
+    `;
+  }).join("");
 }
 
 function renderStorageState(storageState) {
   currentStorageState = storageState || currentStorageState;
   const counts = currentStorageState.detected_counts || { usb: 0, nvme: 0 };
+  const groups = currentStorageState.detected_groups || { usb: [], nvme: [] };
   const lastApply = currentStorageState.last_apply || { status: "never", message: "", applied_at: "never", details: [] };
+
   storageUsbCountEl.textContent = String(counts.usb || 0);
   storageNvmeCountEl.textContent = String(counts.nvme || 0);
   storageEntryCountEl.textContent = String((currentStorageState.entries || []).length);
   storageLastApplyEl.textContent = lastApply.applied_at && lastApply.applied_at !== "never" ? formatLocalDateTime(lastApply.applied_at) : "Never";
   storageApplySummaryEl.textContent = lastApply.message || "Storage mounts have not been applied yet.";
-  renderStorageDevices(currentStorageState.detected_devices || []);
+  renderDetectedStorageTable(groups.nvme || [], storageNvmeDevicesEl, "nvme");
+  renderDetectedStorageTable(groups.usb || [], storageUsbDevicesEl, "usb");
   renderStorageEntries(currentStorageState.entries || []);
 }
 
@@ -656,43 +813,48 @@ async function saveStorageState(nextState) {
 }
 
 async function applyStorageStateRequest() {
-  storageFormStatusEl.textContent = "Applying storage mounts...";
+  setStorageStatus("nvme", "Applying storage mounts...");
+  setStorageStatus("usb", "Applying storage mounts...");
+  setStorageStatus("nas", "Applying storage mounts...");
   const result = await getJson("/api/storage/apply", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({}),
   });
   renderStorageState(result.storage_state || currentStorageState);
-  storageFormStatusEl.textContent = result.apply_result?.message || "Storage configuration applied.";
+  const message = result.apply_result?.message || "Storage configuration applied.";
+  setStorageStatus("nvme", message);
+  setStorageStatus("usb", message);
+  setStorageStatus("nas", message);
 }
 
-async function saveStorageEntry(event) {
+async function saveStorageEntry(kind, event) {
   event.preventDefault();
+  const payload = readStoragePayload(kind);
   const nextState = JSON.parse(JSON.stringify(currentStorageState));
-  const payload = buildStoragePayload();
   const index = nextState.entries.findIndex((entry) => entry.entry_id === payload.entry_id && payload.entry_id);
-  storageFormStatusEl.textContent = index >= 0 ? "Saving mount changes..." : "Saving storage mount...";
+  setStorageStatus(kind, index >= 0 ? "Saving mount changes..." : "Saving mount...");
   if (index >= 0) {
     nextState.entries[index] = { ...nextState.entries[index], ...payload };
   } else {
     nextState.entries.push(payload);
   }
   try {
-    await saveStorageState({
-      entries: nextState.entries,
-      last_apply: currentStorageState.last_apply,
-    });
-    storageFormStatusEl.textContent = index >= 0 ? "Storage mount updated." : "Storage mount added.";
-    resetStorageForm();
+    await saveStorageState({ entries: nextState.entries, last_apply: currentStorageState.last_apply });
+    setStorageStatus(kind, index >= 0 ? "Mount updated." : "Mount saved.");
+    resetStorageForm(kind);
   } catch (error) {
-    storageFormStatusEl.textContent = error.message;
+    setStorageStatus(kind, error.message);
   }
 }
 
-function mutateStorageEntries(mutator) {
+function mutateStorageEntries(mutator, statusKind = "usb") {
   const nextState = JSON.parse(JSON.stringify(currentStorageState));
   mutator(nextState.entries);
-  return saveStorageState({ entries: nextState.entries, last_apply: currentStorageState.last_apply });
+  return saveStorageState({ entries: nextState.entries, last_apply: currentStorageState.last_apply }).catch((error) => {
+    setStorageStatus(statusKind, error.message);
+    throw error;
+  });
 }
 
 function renderSystemState(systemState) {
@@ -1183,35 +1345,59 @@ alarmActiveStateEl.addEventListener("click", (event) => {
   }
 });
 
-storageKindEl.addEventListener("change", () => {
-  toggleStorageFields();
+nvmeStorageFormEl.addEventListener("submit", (event) => {
+  saveStorageEntry("nvme", event);
 });
 
-storageFormEl.addEventListener("submit", (event) => {
-  saveStorageEntry(event);
+usbStorageFormEl.addEventListener("submit", (event) => {
+  saveStorageEntry("usb", event);
 });
 
-storageCancelEditEl.addEventListener("click", () => {
-  resetStorageForm();
-  storageFormStatusEl.textContent = "Storage edit cancelled.";
+sambaStorageFormEl.addEventListener("submit", (event) => {
+  saveStorageEntry("nas", event);
+});
+
+nvmeCancelEditEl.addEventListener("click", () => {
+  resetStorageForm("nvme");
+  setStorageStatus("nvme", "NVMe edit cancelled.");
+});
+
+usbCancelEditEl.addEventListener("click", () => {
+  resetStorageForm("usb");
+  setStorageStatus("usb", "USB edit cancelled.");
+});
+
+sambaCancelEditEl.addEventListener("click", () => {
+  resetStorageForm("nas");
+  setStorageStatus("nas", "Samba edit cancelled.");
 });
 
 applyStorageButtonEl.addEventListener("click", () => {
   applyStorageStateRequest().catch((error) => {
-    storageFormStatusEl.textContent = error.message;
+    setStorageStatus("nvme", error.message);
+    setStorageStatus("usb", error.message);
+    setStorageStatus("nas", error.message);
   });
 });
 
-storageDeviceListEl.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-storage-device]");
+storageNvmeDevicesEl.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-storage-use]");
   if (!button) {
     return;
   }
-  storageKindEl.value = button.dataset.storageKind || "usb";
-  document.getElementById("storageSource").value = button.dataset.storageDevice || "";
-  document.getElementById("storageFilesystem").value = button.dataset.storageFilesystem || "auto";
-  toggleStorageFields();
-  storageFormStatusEl.textContent = "Device source copied into the storage form.";
+  document.getElementById("nvmeSource").value = button.dataset.storagePath || "";
+  document.getElementById("nvmeFilesystem").value = button.dataset.storageFilesystem || "ext4";
+  setStorageStatus("nvme", "Device source copied into the NVMe form.");
+});
+
+storageUsbDevicesEl.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-storage-use]");
+  if (!button) {
+    return;
+  }
+  document.getElementById("usbSource").value = button.dataset.storagePath || "";
+  document.getElementById("usbFilesystem").value = button.dataset.storageFilesystem || "auto";
+  setStorageStatus("usb", "Device source copied into the USB form.");
 });
 
 storageEntriesEl.addEventListener("click", (event) => {
@@ -1219,42 +1405,52 @@ storageEntriesEl.addEventListener("click", (event) => {
   if (editButton) {
     const entry = (currentStorageState.entries || []).find((item) => item.entry_id === editButton.dataset.editStorage);
     if (entry) {
-      setStorageForm(entry);
+      populateStorageForm(entry);
       window.location.hash = "#storage";
-      storageFormStatusEl.textContent = "Editing storage mount.";
+      setStorageStatus(entry.kind === "nas" ? "nas" : entry.kind, "Editing storage mount.");
     }
     return;
   }
 
   const toggleButton = event.target.closest("[data-toggle-storage]");
   if (toggleButton) {
+    const entry = (currentStorageState.entries || []).find((item) => item.entry_id === toggleButton.dataset.toggleStorage);
+    const statusKind = entry?.kind === "nas" ? "nas" : (entry?.kind || "usb");
     mutateStorageEntries((entries) => {
-      const entry = entries.find((item) => item.entry_id === toggleButton.dataset.toggleStorage);
-      if (entry) {
-        entry.enabled = toggleButton.dataset.enabled === "true";
+      const target = entries.find((item) => item.entry_id === toggleButton.dataset.toggleStorage);
+      if (target) {
+        target.enabled = toggleButton.dataset.enabled === "true";
       }
-    }).then(() => {
-      storageFormStatusEl.textContent = toggleButton.dataset.enabled === "true" ? "Storage mount enabled." : "Storage mount disabled.";
+    }, statusKind).then(() => {
+      setStorageStatus(statusKind, toggleButton.dataset.enabled === "true" ? "Storage mount enabled." : "Storage mount disabled.");
     }).catch((error) => {
-      storageFormStatusEl.textContent = error.message;
+      setStorageStatus(statusKind, error.message);
     });
     return;
   }
 
   const deleteButton = event.target.closest("[data-delete-storage]");
   if (deleteButton) {
+    const entry = (currentStorageState.entries || []).find((item) => item.entry_id === deleteButton.dataset.deleteStorage);
+    const statusKind = entry?.kind === "nas" ? "nas" : (entry?.kind || "usb");
     mutateStorageEntries((entries) => {
       const index = entries.findIndex((item) => item.entry_id === deleteButton.dataset.deleteStorage);
       if (index >= 0) {
         entries.splice(index, 1);
       }
-    }).then(() => {
-      storageFormStatusEl.textContent = "Storage mount deleted.";
-      if (storageEntryIdEl.value === deleteButton.dataset.deleteStorage) {
-        resetStorageForm();
+    }, statusKind).then(() => {
+      setStorageStatus(statusKind, "Storage mount deleted.");
+      if (nvmeEntryIdEl.value === deleteButton.dataset.deleteStorage) {
+        resetStorageForm("nvme");
+      }
+      if (usbEntryIdEl.value === deleteButton.dataset.deleteStorage) {
+        resetStorageForm("usb");
+      }
+      if (sambaEntryIdEl.value === deleteButton.dataset.deleteStorage) {
+        resetStorageForm("nas");
       }
     }).catch((error) => {
-      storageFormStatusEl.textContent = error.message;
+      setStorageStatus(statusKind, error.message);
     });
   }
 });
@@ -1270,7 +1466,7 @@ formEl.addEventListener("submit", (event) => {
 });
 
 resetAlarmForm();
-resetStorageForm();
+resetAllStorageForms();
 
 Promise.all([refreshOverview(), loadModules(), loadMediaBrowser(""), loadAlarmFileBrowser(""), loadMediaState()]).catch((error) => {
   formStatusEl.textContent = error.message;

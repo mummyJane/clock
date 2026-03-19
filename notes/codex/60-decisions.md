@@ -57,3 +57,6 @@
 - Persist Task 14 storage planning in a dedicated `storage.json` file instead of folding it into general settings, because mount entries have their own schema, secrets, and apply lifecycle.
 - Apply storage mounts through a dedicated root-owned helper plus sudoers rule rather than running mount logic directly inside the `clock` service, so the web server keeps a narrower privilege boundary.
 - Manage Clock-owned mount entries inside a marked `/etc/fstab` block, because that works for USB, NVMe, and SMB mounts without introducing another service manager dependency.
+- Split the Task 14 storage UI into dedicated NVMe, USB, and Samba sections instead of a single generic form, because the operator tasks and required fields differ materially between those storage types.
+- Gate local-drive formatting behind an explicit `format if needed` flag and only run it when the target device has no filesystem, because formatting should be possible from the touchscreen flow but must stay opt-in and narrowly scoped.
+
