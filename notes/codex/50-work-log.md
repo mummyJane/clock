@@ -173,3 +173,13 @@
 - Validation completed: ran a workspace-local Python smoke test under `D:\clock\.tmp` to confirm alarm screen position persists and that an existing alarm can be updated from daily to weekly with a different file and enabled state.
 - Follow-up fix: reduced the bedside audio-card footprint again for the 1024x600 target display, kept alarm audio on native media playback until touch unlocks the gain stage, and added Chromium `--autoplay-policy=no-user-gesture-required` to the kiosk launcher.
 - Validation completed: `node --check project/web/static/bedside.js`.
+## 2026-03-19 Task 12
+- Re-read `AGENTS.md`, `notes/codex/10-spec.md`, `notes/codex/20-plan.md`, `notes/codex/30-tasks.md`, and `notes/codex/40-context.md` before releasing `0.3.0`.
+- Inspected the existing release entrypoints in `install/`, `update/`, `project/deploy/lib/common.sh`, and `project/web/data/release.json` to keep the release packaging consistent with `0.1.0` and `0.2.0`.
+- Added `install/install-0.3.0.sh` and `update/update-0.3.0.sh` as the new release-specific entrypoints using the shared deployment helpers.
+- Updated `install/install-latest.sh`, `update/update-latest.sh`, and `update/update-test.sh` to target `0.3.0`.
+- Added `notes/codex/80-release-0.3.0.md` and updated `project/docs/full-install.md`, `notes/codex/20-plan.md`, `notes/codex/30-tasks.md`, and `notes/codex/40-context.md` for the new release baseline.
+- Updated the seeded local release metadata in `project/web/data/release.json` to `0.3.0-dev`.
+- Tooling issue: `apply_patch` failed again in this Windows workspace with `windows sandbox: setup refresh failed with status exit code: 1`, so Task 12 edits were written through PowerShell file writes instead.
+- Validation completed: reviewed the new release scripts and notes with `Get-Content`.
+- Validation completed: `python` smoke test to confirm the release metadata JSON parses and the latest/test entrypoints now reference `0.3.0`.

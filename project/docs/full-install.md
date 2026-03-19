@@ -56,7 +56,7 @@ sudo ./update/update-latest.sh
 sudo ./update/update-test.sh
 ```
 
-Both update entrypoints currently target `0.2.0`. Updates keep the live module, setup, and media-state JSON data in `/var/lib/clock`, and the shared media files remain in `/var/lib/clock/media`.
+Both update entrypoints currently target `0.3.0`. Updates keep the live module, setup, and media-state JSON data in `/var/lib/clock`, and the shared media files remain in `/var/lib/clock/media`.
 
 ## Task 9 and Task 10 web controls
 
@@ -72,5 +72,12 @@ The new Media page exposes:
 - a file browser for folders and supported image/audio/video files
 - selection of a file for bedside playback or display
 - clearing the current selection when you want the bedside screen to return to normal modules only
+
+## Alarm module in 0.3.0
+
+- countdown, daily, and selected-day alarms
+- editing, enable or disable, delete, and stop controls in the setup UI
+- alarm audio selection from the shared media library
+- restore of the previous bedside media selection after an alarm is stopped
 
 If you want to test the power endpoints without actually rebooting the Pi, set `CLOCK_POWER_ACTION_MODE=mock` in the service environment before starting the web server.

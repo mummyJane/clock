@@ -72,3 +72,9 @@
 - use the setup web interface as the first-touch local status and setup surface
 - document the Raspberry Pi image choice and SSH-first install flow
 - keep update handling informational until service wiring is introduced in a later task
+
+## Release 0.3.0 delivery
+- add the built-in alarm module to the supported release baseline
+- include alarm scheduling, playback, and bedside stop controls
+- update latest install and update entrypoints to target `0.3.0`
+- document the `0.3.0` release contents and upgrade path

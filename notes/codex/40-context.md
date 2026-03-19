@@ -51,3 +51,5 @@
 - Task 11 follow-up: bedside audio playback now uses a fixed full-screen audio stage so the audio card no longer pushes module content off-screen or creates a scroll path.
 
 - Task 11 follow-up: bedside audio now keeps using native media playback until touch unlocks the Web Audio gain stage, and the kiosk launcher now passes Chromium autoplay policy flags so alarm audio can start without the first manual tap.
+- Release `0.3.0` promotes the built-in alarm module, bedside alarm controls, and shared-media alarm playback flow into the current supported baseline.
+- The stable install and update entrypoints now target `0.3.0`, and the seeded local release metadata reports `0.3.0-dev` until deployment writes the installed release state.

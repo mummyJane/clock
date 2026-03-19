@@ -48,3 +48,6 @@
 
 - Give the built-in alarm module its own persisted `screen_position` setting and render modules into independently positioned bedside slots, because the user needs to place alarm info separately from the clock instead of sharing one global module position.
 - Add in-place alarm editing plus an inline audio picker on the Alarm module page, because editing by delete-and-recreate and selecting files by manual path entry is too awkward for the touchscreen-first setup flow.
+## 2026-03-19
+- Cut release `0.3.0` as a packaging milestone only, reusing the already-completed Task 11 alarm functionality instead of adding new runtime behavior during the release step.
+- Point `install-latest.sh`, `update-latest.sh`, and `update-test.sh` at `0.3.0`, because Task 12 is the new supported baseline and there is no separate unreleased test-only packaging path in the repository yet.
