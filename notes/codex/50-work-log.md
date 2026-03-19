@@ -183,3 +183,10 @@
 - Tooling issue: `apply_patch` failed again in this Windows workspace with `windows sandbox: setup refresh failed with status exit code: 1`, so Task 12 edits were written through PowerShell file writes instead.
 - Validation completed: reviewed the new release scripts and notes with `Get-Content`.
 - Validation completed: `python` smoke test to confirm the release metadata JSON parses and the latest/test entrypoints now reference `0.3.0`.
+## 2026-03-19 Task 13
+- Re-read `AGENTS.md`, `notes/codex/10-spec.md`, `notes/codex/20-plan.md`, `notes/codex/30-tasks.md`, and `notes/codex/40-context.md` before documenting the project in Foam.
+- Inspected `clock.code-workspace` and confirmed the Foam vault is configured at `C:\Users\roger\OneDrive\foam-notes` with an existing `projects/clock/` folder.
+- Reviewed `project/web/server.py`, `project/deploy/lib/common.sh`, `project/deploy/bin/start-bedside.sh`, `project/deploy/systemd/clock-web.service`, `project/modules/api.py`, `project/modules/clock/module.py`, and `project/modules/alarm/module.py` to capture the current architecture and runtime behavior.
+- Added Foam notes under `C:\Users\roger\OneDrive\foam-notes\projects\clock\` for `index.md`, `architecture.md`, `runtime-flow.md`, `deployment.md`, `modules.md`, and `web-api.md`.
+- Updated the Foam project home note to link to the new index page.
+- Validation completed: read back each new Foam note with `Get-Content` and confirmed the expected links and sections were present.

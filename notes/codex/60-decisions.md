@@ -51,3 +51,5 @@
 ## 2026-03-19
 - Cut release `0.3.0` as a packaging milestone only, reusing the already-completed Task 11 alarm functionality instead of adding new runtime behavior during the release step.
 - Point `install-latest.sh`, `update-latest.sh`, and `update-test.sh` at `0.3.0`, because Task 12 is the new supported baseline and there is no separate unreleased test-only packaging path in the repository yet.
+- Use the existing Foam project folder at `projects/clock/` for Task 13 instead of inventing a second documentation location, so project notes stay aligned with the configured workspace.
+- Split the Foam documentation into architecture, runtime flow, deployment, modules, and web API notes rather than one large page, so the material stays navigable as the project grows.

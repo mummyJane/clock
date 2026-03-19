@@ -90,8 +90,9 @@
 
 ## task 13
 - Document using Foam
+- status: done 2026-03-19
 
-## task 14
+## task 15
 - mount USB drivers
 - mount nvme driver (PCIe)
     - setup
@@ -101,4 +102,25 @@
 ## Task 10 follow-up 2026-03-16
 - speed up bedside video preparation for MP4, M4V, and MOV files by remuxing browser-compatible sources and using a faster H.264/AAC fallback
 - status: done 2026-03-16
+
+## task 16
+- share management
+- better file management
+
+## task 17
+- do release 0.5.0
+
+## task 18
+- on 1 of the shares is the folder from openaudible
+    - play book
+
+## task 19
+- do release 0.6.0
+
+## task 20
+- bbc iplayer support
+- bb sound app support
+
+## task 21
+- do release 0.6.0
 

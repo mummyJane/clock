@@ -78,3 +78,8 @@
 - include alarm scheduling, playback, and bedside stop controls
 - update latest install and update entrypoints to target `0.3.0`
 - document the `0.3.0` release contents and upgrade path
+
+## Task 13 delivery
+- document the current project architecture in Foam
+- document runtime flow, deployment flow, modules, and the local web API in Foam
+- keep the Foam project home page linked to the new note index
