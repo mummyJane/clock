@@ -16,7 +16,7 @@ Bring a Raspberry Pi 5 from a fresh Raspberry Pi OS install to the current suppo
 2. Clone the `clock` repository onto the Pi.
 3. Run `sudo ./install/install-latest.sh`.
 4. Reboot the Pi and verify it opens the bedside mode automatically.
-5. Use the setup page to enable modules, adjust clock settings, browse media files, and verify system health.
+5. Use the setup page to configure storage mounts, enable modules, adjust clock settings, browse media files, and verify system health.
 
 ## Example
 
@@ -33,17 +33,18 @@ sudo reboot
 
 ## What the install scripts do
 
-- install required packages: `git`, `rsync`, `curl`, `jq`, `avahi-daemon`, `python3`, `samba`, and a Chromium package
+- install required packages: `git`, `rsync`, `curl`, `jq`, `avahi-daemon`, `python3`, `samba`, `cifs-utils`, `nvme-cli`, `usbutils`, and a Chromium package
 - prefer `chromium` on newer Raspberry Pi OS and fall back to `chromium-browser` on older images
 - create the dedicated `clock` system user and group, and add that user to the `video` group when present for Pi firmware access
 - create `/opt/clock`, `/etc/clock`, `/var/lib/clock`, and `/var/lib/clock/media`
 - sync the repository `project` directory into `/opt/clock/project`
 - create `/etc/clock/clock.env` pointing the web server at persistent JSON state files in `/var/lib/clock`
-- seed `/var/lib/clock/modules.json`, `/var/lib/clock/update-status.json`, and `/var/lib/clock/media-state.json` on first install
+- seed `/var/lib/clock/modules.json`, `/var/lib/clock/update-status.json`, `/var/lib/clock/media-state.json`, and `/var/lib/clock/storage.json` on first install
 - record the installed release in `/var/lib/clock/release.env` and `/var/lib/clock/release.json`
 - install and enable the `clock-web.service` systemd unit
 - install a desktop autostart entry that opens Chromium in kiosk mode on `http://127.0.0.1:8080/bedside.html`
 - install `/etc/sudoers.d/clock-power-control` so the setup page can request reboot and halt actions without an SSH login
+- install `/etc/sudoers.d/clock-storage-manage` so the setup page can apply saved storage mounts without an SSH login
 - enable a Samba share named `clock-media` that points at `/var/lib/clock/media`
 - try to switch Raspberry Pi OS boot behavior to Desktop Autologin using `raspi-config`
 
@@ -81,3 +82,13 @@ The new Media page exposes:
 - restore of the previous bedside media selection after an alarm is stopped
 
 If you want to test the power endpoints without actually rebooting the Pi, set `CLOCK_POWER_ACTION_MODE=mock` in the service environment before starting the web server.
+
+
+## Storage page
+
+Task 14 adds a Storage page where you can:
+
+- detect attached USB and NVMe devices
+- save one or more local mount definitions using absolute device paths such as `/dev/disk/by-uuid/...`
+- save SMB NAS mounts for Synology shares using host, share, username, and password
+- apply the saved storage plan so the device writes a managed Clock block into `/etc/fstab` and mounts those entries

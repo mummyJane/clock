@@ -12,6 +12,7 @@ CLOCK_CONFIG_ROOT="${CLOCK_CONFIG_ROOT:-/etc/clock}"
 CLOCK_STATE_ROOT="${CLOCK_STATE_ROOT:-/var/lib/clock}"
 CLOCK_RELEASE_FILE="${CLOCK_RELEASE_FILE:-${CLOCK_STATE_ROOT}/release.env}"
 CLOCK_MEDIA_ROOT="${CLOCK_MEDIA_ROOT:-${CLOCK_STATE_ROOT}/media}"
+CLOCK_STORAGE_FILE="${CLOCK_STORAGE_FILE:-${CLOCK_STATE_ROOT}/storage.json}"
 CLOCK_SYSTEMD_ROOT="${CLOCK_SYSTEMD_ROOT:-/etc/systemd/system}"
 CLOCK_AUTOSTART_ROOT="${CLOCK_AUTOSTART_ROOT:-/etc/xdg/autostart}"
 CLOCK_SUDOERS_ROOT="${CLOCK_SUDOERS_ROOT:-/etc/sudoers.d}"
@@ -101,6 +102,8 @@ CLOCK_UPDATE_FILE=${CLOCK_STATE_ROOT}/update-status.json
 CLOCK_MODULES_FILE=${CLOCK_STATE_ROOT}/modules.json
 CLOCK_MEDIA_STATE_FILE=${CLOCK_STATE_ROOT}/media-state.json
 CLOCK_MEDIA_ROOT=${CLOCK_MEDIA_ROOT}
+CLOCK_STORAGE_FILE=${CLOCK_STORAGE_FILE}
+CLOCK_STORAGE_HELPER=${CLOCK_INSTALL_ROOT}/project/deploy/bin/apply-storage-config.sh
 EOF
 }
 
@@ -115,6 +118,10 @@ seed_runtime_state() {
 
     if [[ ! -f "${CLOCK_STATE_ROOT}/media-state.json" ]]; then
         install -m 0644 "${CLOCK_INSTALL_ROOT}/project/web/data/media-state.json" "${CLOCK_STATE_ROOT}/media-state.json"
+    fi
+
+    if [[ ! -f "${CLOCK_STORAGE_FILE}" ]]; then
+        install -m 0644 "${CLOCK_INSTALL_ROOT}/project/web/data/storage.json" "${CLOCK_STORAGE_FILE}"
     fi
 
     install -d -m 0775 "${CLOCK_MEDIA_ROOT}"
@@ -159,7 +166,10 @@ install_base_packages() {
         jq \
         avahi-daemon \
         python3 \
-        samba
+        samba \
+        cifs-utils \
+        nvme-cli \
+        usbutils
     apt_install_chromium
 }
 
@@ -170,7 +180,9 @@ install_runtime_assets() {
     install -m 0644 "${CLOCK_INSTALL_ROOT}/project/deploy/systemd/clock-web.service" "${CLOCK_SYSTEMD_ROOT}/clock-web.service"
     install -m 0644 "${CLOCK_INSTALL_ROOT}/project/deploy/autostart/clock-bedside.desktop" "${CLOCK_AUTOSTART_ROOT}/clock-bedside.desktop"
     install -m 0440 "${CLOCK_INSTALL_ROOT}/project/deploy/sudoers/clock-power-control" "${CLOCK_SUDOERS_ROOT}/clock-power-control"
+    install -m 0440 "${CLOCK_INSTALL_ROOT}/project/deploy/sudoers/clock-storage-manage" "${CLOCK_SUDOERS_ROOT}/clock-storage-manage"
     chmod 0755 "${CLOCK_INSTALL_ROOT}/project/deploy/bin/start-bedside.sh"
+    chmod 0755 "${CLOCK_INSTALL_ROOT}/project/deploy/bin/apply-storage-config.sh"
 }
 
 configure_boot_mode() {
@@ -223,5 +235,5 @@ install_runtime_common() {
     configure_boot_mode
     configure_samba_share
     enable_runtime_services
-    log "Installed bedside runtime service, Samba media share, and desktop autostart assets"
+    log "Installed bedside runtime service, Samba media share, storage helper, and desktop autostart assets"
 }

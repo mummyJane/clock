@@ -1,0 +1,1 @@
+clock ALL=(root) NOPASSWD: /opt/clock/project/deploy/bin/apply-storage-config.sh /var/lib/clock/storage.json

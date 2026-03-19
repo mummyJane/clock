@@ -53,3 +53,7 @@
 - Point `install-latest.sh`, `update-latest.sh`, and `update-test.sh` at `0.3.0`, because Task 12 is the new supported baseline and there is no separate unreleased test-only packaging path in the repository yet.
 - Use the existing Foam project folder at `projects/clock/` for Task 13 instead of inventing a second documentation location, so project notes stay aligned with the configured workspace.
 - Split the Foam documentation into architecture, runtime flow, deployment, modules, and web API notes rather than one large page, so the material stays navigable as the project grows.
+
+- Persist Task 14 storage planning in a dedicated `storage.json` file instead of folding it into general settings, because mount entries have their own schema, secrets, and apply lifecycle.
+- Apply storage mounts through a dedicated root-owned helper plus sudoers rule rather than running mount logic directly inside the `clock` service, so the web server keeps a narrower privilege boundary.
+- Manage Clock-owned mount entries inside a marked `/etc/fstab` block, because that works for USB, NVMe, and SMB mounts without introducing another service manager dependency.

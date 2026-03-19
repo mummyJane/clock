@@ -514,3 +514,13 @@ select {
     flex-direction: column;
   }
 }
+
+
+.storage-field-group {
+  display: grid;
+  gap: 16px;
+}
+
+.storage-grid .panel-form {
+  grid-column: span 5;
+}

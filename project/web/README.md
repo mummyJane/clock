@@ -12,8 +12,11 @@ The server listens on port `8080` by default and serves:
 
 - `GET /` for the setup page
 - `GET /bedside.html` for the bedside runtime page
-- `GET /api/system` for hostname, IP address, release, update status, settings, modules, and current media selection
+- `GET /api/system` for hostname, IP address, release, update status, settings, modules, current storage plan, and current media selection
 - `GET /api/system-status` for mounts, disk usage, CPU temperature, and RTC battery details shown on the overview page
+- `GET /api/storage` for saved storage mount entries, detected USB/NVMe devices, and the last storage-apply result
+- `POST /api/storage` to save the storage mount plan for USB, NVMe, and NAS mounts
+- `POST /api/storage/apply` to apply the saved storage plan through the privileged storage helper
 - `GET /api/settings` for saved setup settings
 - `POST /api/settings` to save setup settings, including the local repository path for web update checks
 - `GET /api/modules` for installed module metadata, enabled state, and module settings
@@ -43,6 +46,7 @@ By default the server reads and writes JSON files in `project/web/data/`.
 - `modules.json`
 - `update-status.json`
 - `media-state.json`
+- `storage.json`
 - `media/`
 
 The seeded module settings are:
@@ -66,7 +70,10 @@ Use these environment variables to point at deployment paths:
 - `CLOCK_UPDATE_FILE`
 - `CLOCK_MEDIA_STATE_FILE`
 - `CLOCK_MEDIA_ROOT`
+- `CLOCK_STORAGE_FILE`
+- `CLOCK_STORAGE_HELPER`
 - `CLOCK_POWER_ACTION_MODE`
+- `CLOCK_STORAGE_ACTION_MODE`
 
 Set `CLOCK_POWER_ACTION_MODE=mock` when testing the reboot and halt endpoints in development so the handler reports success without actually powering off the machine.
 
@@ -75,3 +82,6 @@ Use `CLOCK_FFMPEG_BIN` and `CLOCK_FFPROBE_BIN` if `ffmpeg` or `ffprobe` are not 
 The built-in alarm module uses the shared media library paths from Task 10. Alarm playback currently expects supported audio files and restores the previous bedside media selection after the alarm is stopped.
 
 The Alarm module page now also includes an inline audio-file browser to help pick alarm audio from the shared media library, and existing alarms can be edited in place instead of only being toggled or deleted.
+
+
+The Storage page lets the operator save mount entries for USB drives, one or two NVMe devices, and Synology-style NAS shares over SMB. Deployed installs apply that plan through a root-owned helper that updates the managed Clock block in `/etc/fstab`, writes NAS credentials under `/etc/clock/storage-credentials`, and then runs `mount -a`. Set `CLOCK_STORAGE_ACTION_MODE=mock` during development to preview the plan without changing the host system.

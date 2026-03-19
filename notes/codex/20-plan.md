@@ -83,3 +83,10 @@
 - document the current project architecture in Foam
 - document runtime flow, deployment flow, modules, and the local web API in Foam
 - keep the Foam project home page linked to the new note index
+
+
+## Task 14 delivery
+- add storage mount planning for USB, NVMe, and NAS devices in the setup interface
+- detect attached USB and NVMe devices from the local system
+- persist the storage plan and add an apply action that writes managed mount config on the device
+- install the privileged storage helper and supporting packages needed for SMB and NVMe management

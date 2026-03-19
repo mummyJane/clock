@@ -11,7 +11,7 @@
     <section class="hero">
       <p class="eyebrow">Clock Setup</p>
       <h1>Prepare the bedside clock without a keyboard.</h1>
-      <p class="lede">Use this local page to confirm network reachability, device identity, manage bedside modules, browse the shared media folder, schedule alarms, and control the unit when SSH is not available.</p>
+      <p class="lede">Use this local page to confirm network reachability, device identity, manage storage mounts, enable bedside modules, browse the shared media folder, schedule alarms, and control the unit when SSH is not available.</p>
     </section>
 
     <section class="workspace">
@@ -103,6 +103,66 @@
                   <p id="formStatus" class="form-status" role="status"></p>
                 </div>
               </form>
+            </article>
+          </div>
+        </section>
+
+
+        <section class="page" data-page="storage">
+          <div class="grid storage-grid">
+            <article class="panel panel-emphasis">
+              <div class="panel-header">
+                <h2>Storage setup</h2>
+                <button id="applyStorageButton" class="ghost-button" type="button">Apply mounts</button>
+              </div>
+              <dl class="metric-list">
+                <div><dt>USB devices</dt><dd id="storageUsbCount">0</dd></div>
+                <div><dt>NVMe devices</dt><dd id="storageNvmeCount">0</dd></div>
+                <div><dt>Planned mounts</dt><dd id="storageEntryCount">0</dd></div>
+                <div><dt>Last apply</dt><dd id="storageLastApply">Never</dd></div>
+              </dl>
+              <p id="storageApplySummary" class="support-copy"></p>
+            </article>
+
+            <article class="panel panel-form">
+              <div class="panel-header">
+                <h2 id="storageEditorTitle">Add storage mount</h2>
+              </div>
+              <form id="storageForm">
+                <input id="storageEntryId" type="hidden" value="">
+                <label><span>Label</span><input id="storageLabel" name="label" type="text" maxlength="64" placeholder="USB media" required></label>
+                <label><span>Type</span><select id="storageKind" name="kind"><option value="usb">USB drive</option><option value="nvme">NVMe drive</option><option value="nas">NAS share</option></select></label>
+                <div id="storageLocalFields" class="storage-field-group">
+                  <label><span>Device source</span><input id="storageSource" name="source" type="text" maxlength="255" placeholder="/dev/disk/by-uuid/... or /dev/nvme0n1p1"></label>
+                  <label><span>Filesystem</span><input id="storageFilesystem" name="filesystem" type="text" maxlength="32" value="auto" placeholder="ext4"></label>
+                </div>
+                <div id="storageNasFields" class="storage-field-group" hidden>
+                  <label><span>NAS host</span><input id="storageHost" name="host" type="text" maxlength="255" placeholder="nas.local"></label>
+                  <label><span>Share name</span><input id="storageShare" name="share" type="text" maxlength="255" placeholder="Media"></label>
+                  <label><span>Username</span><input id="storageUsername" name="username" type="text" maxlength="128" placeholder="clock"></label>
+                  <label><span>Password</span><input id="storagePassword" name="password" type="password" maxlength="256" placeholder="Required for most Synology shares"></label>
+                  <label><span>Domain</span><input id="storageDomain" name="domain" type="text" maxlength="128" placeholder="Optional"></label>
+                  <label><span>SMB version</span><input id="storageVersion" name="version" type="text" maxlength="32" value="3.0" placeholder="3.0"></label>
+                </div>
+                <label><span>Mount point</span><input id="storageMountPoint" name="mount_point" type="text" maxlength="255" placeholder="/mnt/clock-usb" required></label>
+                <label><span>Mount options</span><input id="storageOptions" name="options" type="text" maxlength="255" placeholder="defaults,nofail"></label>
+                <label class="toggle"><input id="storageEnabled" name="enabled" type="checkbox" checked><span>Enable this mount</span></label>
+                <div class="form-actions form-actions-inline">
+                  <button id="storageSubmitButton" class="primary-button" type="submit">Add mount</button>
+                  <button id="storageCancelEdit" class="ghost-button" type="button" hidden>Cancel edit</button>
+                </div>
+                <p id="storageFormStatus" class="form-status" role="status"></p>
+              </form>
+            </article>
+
+            <article class="panel panel-wide">
+              <div class="panel-header"><h2>Detected local devices</h2></div>
+              <div id="storageDeviceList" class="mount-list">Loading storage devices...</div>
+            </article>
+
+            <article class="panel panel-wide">
+              <div class="panel-header"><h2>Saved mount plan</h2></div>
+              <div id="storageEntries" class="alarm-list">Loading storage plan...</div>
             </article>
           </div>
         </section>

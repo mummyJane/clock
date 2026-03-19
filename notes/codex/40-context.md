@@ -55,3 +55,6 @@
 - The stable install and update entrypoints now target `0.3.0`, and the seeded local release metadata reports `0.3.0-dev` until deployment writes the installed release state.
 - Task 13 documents the current project in the Foam vault under `projects/clock/`, with notes for architecture, runtime flow, deployment, modules, and the web API.
 - The Foam project home note now links to a dedicated `projects/clock/index` page so the generated notes are easier to browse.
+
+- Task 14 adds a Storage page to the setup UI for USB, NVMe, and NAS mount planning, including detected-device listing plus saved mount entries.
+- Storage plans are now persisted in `storage.json`, and deployed installs can apply them through a root-owned helper that updates a managed Clock block in `/etc/fstab` and writes SMB credential files under `/etc/clock/storage-credentials`.

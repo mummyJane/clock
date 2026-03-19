@@ -44,9 +44,27 @@ const alarmCancelEditEl = document.getElementById("alarmCancelEdit");
 const alarmEditIdEl = document.getElementById("alarmEditId");
 const alarmFilePathEl = document.getElementById("alarmFilePath");
 const alarmFileBrowserEl = document.getElementById("alarmFileBrowser");
+const applyStorageButtonEl = document.getElementById("applyStorageButton");
+const storageUsbCountEl = document.getElementById("storageUsbCount");
+const storageNvmeCountEl = document.getElementById("storageNvmeCount");
+const storageEntryCountEl = document.getElementById("storageEntryCount");
+const storageLastApplyEl = document.getElementById("storageLastApply");
+const storageApplySummaryEl = document.getElementById("storageApplySummary");
+const storageFormEl = document.getElementById("storageForm");
+const storageFormStatusEl = document.getElementById("storageFormStatus");
+const storageEntriesEl = document.getElementById("storageEntries");
+const storageDeviceListEl = document.getElementById("storageDeviceList");
+const storageEditorTitleEl = document.getElementById("storageEditorTitle");
+const storageSubmitButtonEl = document.getElementById("storageSubmitButton");
+const storageCancelEditEl = document.getElementById("storageCancelEdit");
+const storageEntryIdEl = document.getElementById("storageEntryId");
+const storageKindEl = document.getElementById("storageKind");
+const storageLocalFieldsEl = document.getElementById("storageLocalFields");
+const storageNasFieldsEl = document.getElementById("storageNasFields");
 
 const basePages = [
   { id: "overview", label: "Overview" },
+  { id: "storage", label: "Storage" },
   { id: "media", label: "Media" },
   { id: "modules", label: "Modules" },
 ];
@@ -64,6 +82,7 @@ const DEFAULT_ALARM_SCREEN_POSITION = "bottom-center";
 let moduleState = { modules: {} };
 let mediaState = { selected_file: "", selected_kind: "none", playback_state: "stopped" };
 let currentAlarmState = { active_alarm: null, upcoming_alarm: null, alarm_count: 0, enabled_count: 0 };
+let currentStorageState = { entries: [], detected_devices: [], detected_counts: { usb: 0, nvme: 0 }, last_apply: { status: "never", message: "", applied_at: "never", details: [] } };
 let currentMediaPath = "";
 let currentAlarmBrowserPath = "";
 
@@ -496,6 +515,186 @@ function renderAlarmFileBrowser(listing) {
   `;
 }
 
+
+function toggleStorageFields() {
+  const isNas = storageKindEl.value === "nas";
+  storageLocalFieldsEl.hidden = isNas;
+  storageNasFieldsEl.hidden = !isNas;
+}
+
+function resetStorageForm() {
+  storageFormEl.reset();
+  storageEntryIdEl.value = "";
+  storageEditorTitleEl.textContent = "Add storage mount";
+  storageSubmitButtonEl.textContent = "Add mount";
+  storageCancelEditEl.hidden = true;
+  document.getElementById("storageFilesystem").value = "auto";
+  document.getElementById("storageVersion").value = "3.0";
+  document.getElementById("storageEnabled").checked = true;
+  storageKindEl.value = "usb";
+  toggleStorageFields();
+}
+
+function setStorageForm(entry) {
+  storageEntryIdEl.value = entry.entry_id || "";
+  document.getElementById("storageLabel").value = entry.label || "";
+  storageKindEl.value = entry.kind || "usb";
+  document.getElementById("storageSource").value = entry.source || "";
+  document.getElementById("storageFilesystem").value = entry.filesystem || "auto";
+  document.getElementById("storageHost").value = entry.host || "";
+  document.getElementById("storageShare").value = entry.share || "";
+  document.getElementById("storageUsername").value = entry.username || "";
+  document.getElementById("storagePassword").value = entry.password || "";
+  document.getElementById("storageDomain").value = entry.domain || "";
+  document.getElementById("storageVersion").value = entry.version || "3.0";
+  document.getElementById("storageMountPoint").value = entry.mount_point || "";
+  document.getElementById("storageOptions").value = entry.options || "";
+  document.getElementById("storageEnabled").checked = Boolean(entry.enabled);
+  storageEditorTitleEl.textContent = `Edit ${entry.label || "storage"}`;
+  storageSubmitButtonEl.textContent = "Save mount";
+  storageCancelEditEl.hidden = false;
+  toggleStorageFields();
+}
+
+function buildStoragePayload() {
+  return {
+    entry_id: storageEntryIdEl.value,
+    label: document.getElementById("storageLabel").value,
+    kind: storageKindEl.value,
+    source: document.getElementById("storageSource").value,
+    filesystem: document.getElementById("storageFilesystem").value,
+    host: document.getElementById("storageHost").value,
+    share: document.getElementById("storageShare").value,
+    username: document.getElementById("storageUsername").value,
+    password: document.getElementById("storagePassword").value,
+    domain: document.getElementById("storageDomain").value,
+    version: document.getElementById("storageVersion").value,
+    mount_point: document.getElementById("storageMountPoint").value,
+    options: document.getElementById("storageOptions").value,
+    enabled: document.getElementById("storageEnabled").checked,
+  };
+}
+
+function renderStorageDevices(devices) {
+  if (!devices.length) {
+    storageDeviceListEl.innerHTML = '<p class="support-copy">No USB or NVMe devices detected right now.</p>';
+    return;
+  }
+
+  storageDeviceListEl.innerHTML = `
+    <table class="mount-table">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Path</th>
+          <th>Filesystem</th>
+          <th>Size</th>
+          <th>Mounted at</th>
+          <th>Use</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${devices.map((device) => `
+          <tr>
+            <td>${escapeHtml(titleCase(device.storage_class || device.transport || device.type || "device"))}</td>
+            <td>${escapeHtml(device.path)}</td>
+            <td>${escapeHtml(device.filesystem || "Unknown")}</td>
+            <td>${escapeHtml(device.size || "Unknown")}</td>
+            <td>${escapeHtml(device.mount_point || "Not mounted")}</td>
+            <td><button class="ghost-button" type="button" data-storage-device="${escapeHtml(device.path)}" data-storage-kind="${escapeHtml(device.storage_class || "usb")}" data-storage-filesystem="${escapeHtml(device.filesystem || "auto")}">Use</button></td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderStorageEntries(entries) {
+  if (!entries.length) {
+    storageEntriesEl.innerHTML = '<p class="support-copy">No storage mounts saved yet.</p>';
+    return;
+  }
+
+  storageEntriesEl.innerHTML = entries.map((entry) => `
+    <article class="alarm-card ${entry.is_mounted ? "is-active" : ""}">
+      <div>
+        <h3>${escapeHtml(entry.label)}</h3>
+        <p>${escapeHtml(titleCase(entry.kind))} | ${escapeHtml(entry.mount_point)}</p>
+        <p class="support-copy">Source: ${escapeHtml(entry.source)}</p>
+        <p class="support-copy">Status: ${entry.enabled ? (entry.is_mounted ? "Mounted" : "Enabled, waiting to mount") : "Disabled"}</p>
+      </div>
+      <div class="alarm-card-actions">
+        <button class="ghost-button" type="button" data-edit-storage="${escapeHtml(entry.entry_id)}">Edit</button>
+        <button class="ghost-button" type="button" data-toggle-storage="${escapeHtml(entry.entry_id)}" data-enabled="${entry.enabled ? "false" : "true"}">${entry.enabled ? "Disable" : "Enable"}</button>
+        <button class="ghost-button" type="button" data-delete-storage="${escapeHtml(entry.entry_id)}">Delete</button>
+      </div>
+    </article>
+  `).join("");
+}
+
+function renderStorageState(storageState) {
+  currentStorageState = storageState || currentStorageState;
+  const counts = currentStorageState.detected_counts || { usb: 0, nvme: 0 };
+  const lastApply = currentStorageState.last_apply || { status: "never", message: "", applied_at: "never", details: [] };
+  storageUsbCountEl.textContent = String(counts.usb || 0);
+  storageNvmeCountEl.textContent = String(counts.nvme || 0);
+  storageEntryCountEl.textContent = String((currentStorageState.entries || []).length);
+  storageLastApplyEl.textContent = lastApply.applied_at && lastApply.applied_at !== "never" ? formatLocalDateTime(lastApply.applied_at) : "Never";
+  storageApplySummaryEl.textContent = lastApply.message || "Storage mounts have not been applied yet.";
+  renderStorageDevices(currentStorageState.detected_devices || []);
+  renderStorageEntries(currentStorageState.entries || []);
+}
+
+async function saveStorageState(nextState) {
+  const saved = await getJson("/api/storage", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(nextState),
+  });
+  renderStorageState(saved);
+  return saved;
+}
+
+async function applyStorageStateRequest() {
+  storageFormStatusEl.textContent = "Applying storage mounts...";
+  const result = await getJson("/api/storage/apply", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  renderStorageState(result.storage_state || currentStorageState);
+  storageFormStatusEl.textContent = result.apply_result?.message || "Storage configuration applied.";
+}
+
+async function saveStorageEntry(event) {
+  event.preventDefault();
+  const nextState = JSON.parse(JSON.stringify(currentStorageState));
+  const payload = buildStoragePayload();
+  const index = nextState.entries.findIndex((entry) => entry.entry_id === payload.entry_id && payload.entry_id);
+  storageFormStatusEl.textContent = index >= 0 ? "Saving mount changes..." : "Saving storage mount...";
+  if (index >= 0) {
+    nextState.entries[index] = { ...nextState.entries[index], ...payload };
+  } else {
+    nextState.entries.push(payload);
+  }
+  try {
+    await saveStorageState({
+      entries: nextState.entries,
+      last_apply: currentStorageState.last_apply,
+    });
+    storageFormStatusEl.textContent = index >= 0 ? "Storage mount updated." : "Storage mount added.";
+    resetStorageForm();
+  } catch (error) {
+    storageFormStatusEl.textContent = error.message;
+  }
+}
+
+function mutateStorageEntries(mutator) {
+  const nextState = JSON.parse(JSON.stringify(currentStorageState));
+  mutator(nextState.entries);
+  return saveStorageState({ entries: nextState.entries, last_apply: currentStorageState.last_apply });
+}
+
 function renderSystemState(systemState) {
   hostnameEl.textContent = systemState.hostname || "Unknown";
   ipAddressesEl.textContent = (systemState.ip_addresses || []).join(", ") || "No IPv4 address detected";
@@ -506,6 +705,7 @@ function renderSystemState(systemState) {
   currentAlarmState = systemState.alarm_state || currentAlarmState;
   renderModules(systemState.modules || moduleState);
   renderMediaState(systemState.media_state || mediaState);
+  renderStorageState(systemState.storage_state || currentStorageState);
 }
 
 async function loadSystemState() {
@@ -983,6 +1183,82 @@ alarmActiveStateEl.addEventListener("click", (event) => {
   }
 });
 
+storageKindEl.addEventListener("change", () => {
+  toggleStorageFields();
+});
+
+storageFormEl.addEventListener("submit", (event) => {
+  saveStorageEntry(event);
+});
+
+storageCancelEditEl.addEventListener("click", () => {
+  resetStorageForm();
+  storageFormStatusEl.textContent = "Storage edit cancelled.";
+});
+
+applyStorageButtonEl.addEventListener("click", () => {
+  applyStorageStateRequest().catch((error) => {
+    storageFormStatusEl.textContent = error.message;
+  });
+});
+
+storageDeviceListEl.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-storage-device]");
+  if (!button) {
+    return;
+  }
+  storageKindEl.value = button.dataset.storageKind || "usb";
+  document.getElementById("storageSource").value = button.dataset.storageDevice || "";
+  document.getElementById("storageFilesystem").value = button.dataset.storageFilesystem || "auto";
+  toggleStorageFields();
+  storageFormStatusEl.textContent = "Device source copied into the storage form.";
+});
+
+storageEntriesEl.addEventListener("click", (event) => {
+  const editButton = event.target.closest("[data-edit-storage]");
+  if (editButton) {
+    const entry = (currentStorageState.entries || []).find((item) => item.entry_id === editButton.dataset.editStorage);
+    if (entry) {
+      setStorageForm(entry);
+      window.location.hash = "#storage";
+      storageFormStatusEl.textContent = "Editing storage mount.";
+    }
+    return;
+  }
+
+  const toggleButton = event.target.closest("[data-toggle-storage]");
+  if (toggleButton) {
+    mutateStorageEntries((entries) => {
+      const entry = entries.find((item) => item.entry_id === toggleButton.dataset.toggleStorage);
+      if (entry) {
+        entry.enabled = toggleButton.dataset.enabled === "true";
+      }
+    }).then(() => {
+      storageFormStatusEl.textContent = toggleButton.dataset.enabled === "true" ? "Storage mount enabled." : "Storage mount disabled.";
+    }).catch((error) => {
+      storageFormStatusEl.textContent = error.message;
+    });
+    return;
+  }
+
+  const deleteButton = event.target.closest("[data-delete-storage]");
+  if (deleteButton) {
+    mutateStorageEntries((entries) => {
+      const index = entries.findIndex((item) => item.entry_id === deleteButton.dataset.deleteStorage);
+      if (index >= 0) {
+        entries.splice(index, 1);
+      }
+    }).then(() => {
+      storageFormStatusEl.textContent = "Storage mount deleted.";
+      if (storageEntryIdEl.value === deleteButton.dataset.deleteStorage) {
+        resetStorageForm();
+      }
+    }).catch((error) => {
+      storageFormStatusEl.textContent = error.message;
+    });
+  }
+});
+
 window.addEventListener("hashchange", () => {
   ensureVisiblePage();
   renderPageNav();
@@ -994,6 +1270,7 @@ formEl.addEventListener("submit", (event) => {
 });
 
 resetAlarmForm();
+resetStorageForm();
 
 Promise.all([refreshOverview(), loadModules(), loadMediaBrowser(""), loadAlarmFileBrowser(""), loadMediaState()]).catch((error) => {
   formStatusEl.textContent = error.message;

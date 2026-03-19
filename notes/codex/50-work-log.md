@@ -190,3 +190,16 @@
 - Added Foam notes under `C:\Users\roger\OneDrive\foam-notes\projects\clock\` for `index.md`, `architecture.md`, `runtime-flow.md`, `deployment.md`, `modules.md`, and `web-api.md`.
 - Updated the Foam project home note to link to the new index page.
 - Validation completed: read back each new Foam note with `Get-Content` and confirmed the expected links and sections were present.
+
+
+## 2026-03-19 Task 14
+- Re-read `AGENTS.md`, `notes/codex/10-spec.md`, `notes/codex/20-plan.md`, `notes/codex/30-tasks.md`, and `notes/codex/40-context.md` before implementing storage management.
+- Inspected the existing setup UI, deployment helper, and system-status code to fit storage management into the current dependency-free web server.
+- Added `project/web/storage_support.py` plus seeded `project/web/data/storage.json` for persisted storage planning, validation, device detection, mount preview generation, and privileged apply support.
+- Extended `project/web/server.py` with storage state and apply APIs, and updated the setup UI in `project/web/static/index.html` and `project/web/static/app.js` with a new Storage page for USB, NVMe, and NAS mount configuration.
+- Added deployment assets `project/deploy/bin/apply-storage-config.sh` and `project/deploy/sudoers/clock-storage-manage`, and updated `project/deploy/lib/common.sh` to seed storage state, install the helper, and install `cifs-utils`, `nvme-cli`, and `usbutils`.
+- Updated `project/web/README.md` and `project/docs/full-install.md` to document the new storage APIs and operator flow.
+- Validation completed: `python -m py_compile project/web/server.py project/web/storage_support.py`.
+- Validation completed: `node --check project/web/static/app.js`.
+- Validation completed: ran a workspace-local Python smoke test under `D:\clock\.codex-temp-tests\task14-storage` to save storage entries and apply them in `CLOCK_STORAGE_ACTION_MODE=mock`.
+- Runtime portability fix: storage path validation initially used host-platform absolute-path checks, which rejected Linux mount paths in this Windows workspace; switched the validator to use `PurePosixPath` so development and Pi deployment agree on valid mount paths.

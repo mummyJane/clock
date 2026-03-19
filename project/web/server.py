@@ -19,6 +19,22 @@ from typing import Any
 from zoneinfo import ZoneInfo
 from urllib.parse import parse_qs, urlparse
 
+try:
+    from .storage_support import (
+        DEFAULT_STORAGE_CONFIG,
+        build_storage_overview,
+        load_storage_config,
+        render_storage_preview,
+        save_storage_config,
+    )
+except ImportError:
+    from storage_support import (
+        DEFAULT_STORAGE_CONFIG,
+        build_storage_overview,
+        load_storage_config,
+        render_storage_preview,
+        save_storage_config,
+    )
 
 APP_ROOT = Path(__file__).resolve().parent
 STATIC_ROOT = APP_ROOT / "static"
@@ -30,6 +46,9 @@ MODULES_PATH = Path(os.environ.get("CLOCK_MODULES_FILE", DEFAULT_DATA_ROOT / "mo
 MEDIA_STATE_PATH = Path(os.environ.get("CLOCK_MEDIA_STATE_FILE", DEFAULT_DATA_ROOT / "media-state.json"))
 MEDIA_ROOT = Path(os.environ.get("CLOCK_MEDIA_ROOT", DEFAULT_DATA_ROOT / "media"))
 MEDIA_TEMP_ROOT = Path(os.environ.get("CLOCK_MEDIA_TEMP_ROOT", DEFAULT_DATA_ROOT / "media-temp"))
+STORAGE_PATH = Path(os.environ.get("CLOCK_STORAGE_FILE", DEFAULT_DATA_ROOT / "storage.json"))
+STORAGE_HELPER = os.environ.get("CLOCK_STORAGE_HELPER", "/opt/clock/project/deploy/bin/apply-storage-config.sh")
+STORAGE_ACTION_MODE = os.environ.get("CLOCK_STORAGE_ACTION_MODE", "live")
 FFMPEG_BIN = os.environ.get("CLOCK_FFMPEG_BIN", "ffmpeg")
 FFPROBE_BIN = os.environ.get("CLOCK_FFPROBE_BIN", "ffprobe")
 POWER_ACTION_MODE = os.environ.get("CLOCK_POWER_ACTION_MODE", "live")
@@ -106,7 +125,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
 }
 
 DEFAULT_RELEASE: dict[str, Any] = {
-    "release": "0.2.0-dev",
+    "release": "0.3.0-dev",
     "updated_at": "unknown",
 }
 
@@ -301,6 +320,66 @@ def build_system_status() -> dict[str, Any]:
         }
 
 
+
+def load_storage_state() -> dict[str, Any]:
+    return load_storage_config(STORAGE_PATH)
+
+
+def save_storage_state(payload: dict[str, Any]) -> dict[str, Any]:
+    return save_storage_config(STORAGE_PATH, payload)
+
+
+def build_storage_state(mounts: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    return build_storage_overview(load_storage_state(), mounts or get_mount_status())
+
+
+def apply_storage_state() -> dict[str, Any]:
+    storage = load_storage_state()
+    preview = render_storage_preview(storage, Path('/etc/clock/storage-credentials'))
+    if STORAGE_ACTION_MODE == 'mock':
+        storage['last_apply'] = {
+            'status': 'mock',
+            'message': f"Prepared {preview['enabled_count']} storage mount(s) without applying them.",
+            'applied_at': current_timestamp(),
+            'details': ['CLOCK_STORAGE_ACTION_MODE=mock'],
+        }
+        save_storage_state(storage)
+        return {
+            'apply_result': storage['last_apply'],
+            'storage_state': build_storage_state(),
+            'preview': preview,
+        }
+
+    try:
+        result = subprocess.run(
+            ['sudo', STORAGE_HELPER, str(STORAGE_PATH)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        raise ValueError(f'Storage helper was not found: {STORAGE_HELPER}') from exc
+    except subprocess.CalledProcessError as exc:
+        message = exc.stderr.strip() or exc.stdout.strip() or 'Storage apply failed.'
+        raise ValueError(message) from exc
+
+    try:
+        helper_payload = json.loads(result.stdout.strip() or '{}')
+    except json.JSONDecodeError as exc:
+        raise ValueError('Storage helper returned invalid JSON.') from exc
+
+    storage['last_apply'] = {
+        'status': str(helper_payload.get('status', 'ok')).strip() or 'ok',
+        'message': str(helper_payload.get('message', 'Storage configuration applied.')).strip() or 'Storage configuration applied.',
+        'applied_at': str(helper_payload.get('applied_at', current_timestamp())).strip() or current_timestamp(),
+        'details': list(helper_payload.get('details', [])) if isinstance(helper_payload.get('details', []), list) else [],
+    }
+    save_storage_state(storage)
+    return {
+        'apply_result': storage['last_apply'],
+        'storage_state': build_storage_state(),
+        'preview': helper_payload.get('preview', preview),
+    }
 def media_content_type_for_name(name: str) -> str | None:
     content_type, _ = mimetypes.guess_type(name)
     if content_type:
@@ -1488,6 +1567,7 @@ def build_system_state() -> dict[str, Any]:
     settings = load_json(SETTINGS_PATH, DEFAULT_SETTINGS)
     modules = load_modules_state()
     media_state = load_media_state()
+    storage_state = build_storage_state()
     return {
         "hostname": socket.gethostname(),
         "ip_addresses": get_ip_addresses(),
@@ -1496,6 +1576,7 @@ def build_system_state() -> dict[str, Any]:
         "settings": settings,
         "modules": modules,
         "media_state": media_state,
+        "storage_state": storage_state,
         "alarm_state": build_alarm_state(),
     }
 
@@ -1523,6 +1604,9 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/update-status":
             self.send_json(load_json(UPDATE_STATUS_PATH, DEFAULT_UPDATE_STATUS))
             return
+        if parsed.path == "/api/storage":
+            self.send_json(build_storage_state())
+            return
         if parsed.path == "/api/media/files":
             media_path = parse_qs(parsed.query).get("path", [""])[0]
             self.handle_media_listing(media_path)
@@ -1545,6 +1629,12 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/modules":
             self.handle_save_modules()
+            return
+        if parsed.path == "/api/storage":
+            self.handle_save_storage()
+            return
+        if parsed.path == "/api/storage/apply":
+            self.handle_apply_storage()
             return
         if parsed.path == "/api/update-status/check":
             self.handle_check_update_status()
@@ -1606,6 +1696,28 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
             self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
             return
         self.send_json(modules, HTTPStatus.OK)
+
+    def handle_save_storage(self) -> None:
+        content_length = int(self.headers.get("Content-Length", "0"))
+        raw_body = self.rfile.read(content_length)
+        try:
+            payload = json.loads(raw_body.decode("utf-8"))
+            storage = save_storage_state(payload)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            self.send_json({"error": f"Invalid JSON payload: {exc}"}, HTTPStatus.BAD_REQUEST)
+            return
+        except ValueError as exc:
+            self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        self.send_json(build_storage_overview(storage, get_mount_status()), HTTPStatus.OK)
+
+    def handle_apply_storage(self) -> None:
+        try:
+            result = apply_storage_state()
+        except ValueError as exc:
+            self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        self.send_json(result, HTTPStatus.OK)
 
     def handle_check_update_status(self) -> None:
         settings = load_json(SETTINGS_PATH, DEFAULT_SETTINGS)
@@ -1825,6 +1937,15 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+
+
+
+
 
 
 
