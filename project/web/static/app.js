@@ -49,9 +49,11 @@ const applyStorageButtonEl = document.getElementById("applyStorageButton");
 const storageUsbCountEl = document.getElementById("storageUsbCount");
 const storageNvmeCountEl = document.getElementById("storageNvmeCount");
 const storageEntryCountEl = document.getElementById("storageEntryCount");
+const storageActiveMountCountEl = document.getElementById("storageActiveMountCount");
 const storageLastApplyEl = document.getElementById("storageLastApply");
 const storageApplySummaryEl = document.getElementById("storageApplySummary");
 const storageEntriesEl = document.getElementById("storageEntries");
+const activeStorageMountsEl = document.getElementById("activeStorageMounts");
 const storageUsbDevicesEl = document.getElementById("storageUsbDevices");
 const storageNvmeDevicesEl = document.getElementById("storageNvmeDevices");
 const nvmeStorageFormEl = document.getElementById("nvmeStorageForm");
@@ -799,9 +801,39 @@ function updateDetectedStorageDetails(kind, container, devices) {
   details.textContent = describeDetectedStorageDevice(selectedDevice);
 }
 
+function renderActiveStorageMounts(mounts) {
+  if (!mounts.length) {
+    activeStorageMountsEl.innerHTML = '<p class="support-copy">No active mounts detected right now.</p>';
+    return;
+  }
+
+  activeStorageMountsEl.innerHTML = `
+    <table class="mount-table">
+      <thead>
+        <tr>
+          <th>Device</th>
+          <th>Mount point</th>
+          <th>Filesystem</th>
+          <th>Used</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${mounts.map((mount) => `
+          <tr>
+            <td>${escapeHtml(mount.device || "Unknown")}</td>
+            <td>${escapeHtml(mount.mount_point || "-")}</td>
+            <td>${escapeHtml(mount.filesystem || "Unknown")}</td>
+            <td>${escapeHtml(`${mount.used_gb ?? 0} / ${mount.total_gb ?? 0} GB (${mount.percent_used ?? 0}%)`)}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
 function renderStorageEntries(entries) {
   if (!entries.length) {
-    storageEntriesEl.innerHTML = '<p class="support-copy">No storage mounts saved yet.</p>';
+    storageEntriesEl.innerHTML = '<p class="support-copy">No storage entries saved yet.</p>';
     return;
   }
 
@@ -845,16 +877,19 @@ function renderStorageState(storageState) {
   const counts = currentStorageState.detected_counts || { usb: 0, nvme: 0 };
   const groups = currentStorageState.detected_groups || { usb: [], nvme: [] };
   const skippedCounts = currentStorageState.skipped_detected_counts || { usb: 0, nvme: 0 };
+  const activeMounts = currentStorageState.active_mounts || [];
   const lastApply = currentStorageState.last_apply || { status: "never", message: "", applied_at: "never", details: [] };
 
   storageUsbCountEl.textContent = String(counts.usb || 0);
   storageNvmeCountEl.textContent = String(counts.nvme || 0);
   storageEntryCountEl.textContent = String((currentStorageState.entries || []).length);
+  storageActiveMountCountEl.textContent = String(activeMounts.length);
   storageLastApplyEl.textContent = lastApply.applied_at && lastApply.applied_at !== "never" ? formatLocalDateTime(lastApply.applied_at) : "Never";
   storageApplySummaryEl.textContent = lastApply.message || "Storage mounts have not been applied yet.";
   renderDetectedStoragePicker(groups.nvme || [], storageNvmeDevicesEl, "nvme", skippedCounts.nvme || 0);
   renderDetectedStoragePicker(groups.usb || [], storageUsbDevicesEl, "usb", skippedCounts.usb || 0);
   renderStorageEntries(currentStorageState.entries || []);
+  renderActiveStorageMounts(activeMounts);
 }
 
 async function saveStorageState(nextState) {

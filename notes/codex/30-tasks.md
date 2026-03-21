@@ -138,3 +138,8 @@
 - add web controls for creating folders and renaming or deleting files and folders in the shared media library
 - clear stale bedside media selection automatically when the selected file is renamed or deleted from the media library
 - status: done 2026-03-21
+
+## task 15 storage/share clarification follow-up 2026-03-21
+- make the Samba share creation flow explicit on the Storage page
+- add a live system mount list so all currently mounted drives and shares are visible separately from the saved Clock storage entries
+- status: done 2026-03-21

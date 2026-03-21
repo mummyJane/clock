@@ -119,6 +119,7 @@
                 <div><dt>USB devices</dt><dd id="storageUsbCount">0</dd></div>
                 <div><dt>NVMe devices</dt><dd id="storageNvmeCount">0</dd></div>
                 <div><dt>Planned mounts</dt><dd id="storageEntryCount">0</dd></div>
+                <div><dt>Live mounts</dt><dd id="storageActiveMountCount">0</dd></div>
                 <div><dt>Last apply</dt><dd id="storageLastApply">Never</dd></div>
               </dl>
               <p id="storageApplySummary" class="support-copy"></p>
@@ -169,8 +170,8 @@
             </article>
 
             <article class="panel panel-wide">
-              <div class="panel-header"><h2>Samba shares</h2></div>
-              <p class="support-copy">Set the server path, share name, username, and password for each SMB share you want the clock to mount.</p>
+              <div class="panel-header"><h2>Add or edit Samba share</h2></div>
+              <p class="support-copy">To add a new network share, fill in the server path, share name, mount point, and credentials here, then press <strong>Save Samba share</strong>. Saved shares appear below in the storage entry list.</p>
               <form id="sambaStorageForm" class="storage-entry-form">
                 <input id="sambaEntryId" type="hidden" value="">
                 <label><span>Label</span><input id="sambaLabel" type="text" maxlength="64" placeholder="Synology media"></label>
@@ -193,8 +194,14 @@
             </article>
 
             <article class="panel panel-wide">
-              <div class="panel-header"><h2>Saved mount plan</h2></div>
+              <div class="panel-header"><h2>Saved storage entries</h2></div>
               <div id="storageEntries" class="alarm-list">Loading storage plan...</div>
+            </article>
+
+            <article class="panel panel-wide">
+              <div class="panel-header"><h2>Active system mounts</h2></div>
+              <p class="support-copy">This list shows the drives and shares the system currently has mounted, whether they came from Clock storage plans or some other auto-mount path.</p>
+              <div id="activeStorageMounts" class="mount-list">Loading active mounts...</div>
             </article>
           </div>
         </section>
@@ -206,7 +213,7 @@
                 <h2>Media library</h2>
                 <button id="createMediaFolder" class="ghost-button" type="button">New folder</button>
               </div>
-              <p class="support-copy">Copy image, audio, or video files into the Samba share and choose one here for bedside playback.</p>
+              <p class="support-copy">Copy image, audio, or video files into the Samba share and choose one here for bedside playback. Use <strong>New folder</strong> above plus the <strong>Rename</strong> and <strong>Delete</strong> buttons in the file list to manage the library.</p>
               <dl class="media-meta-list">
                 <div><dt>Samba share path</dt><dd id="mediaSharePath">Loading...</dd></div>
                 <div><dt>Current folder</dt><dd id="mediaCurrentPath">/</dd></div>

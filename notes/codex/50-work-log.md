@@ -232,3 +232,10 @@
 - Validation completed: `python -m py_compile project/web/server.py project/web/storage_support.py`.
 - Validation completed: `node --check project/web/static/app.js`.
 - Validation completed: ran a workspace-local Python smoke test under `D:\clock\.codex-temp-tests\task15-media` to create a folder, rename a selected audio file, confirm the selected-media state was cleared, and then delete the containing folder.
+
+## 2026-03-21 Task 15 storage/share clarification follow-up
+- User feedback showed the previous Task 15 slice missed the intended share-management workflow: the Storage page did not make new-share setup obvious and the saved-entry list was being read as if it were the full live mount list.
+- Updated `project/web/static/index.html` and `project/web/static/app.js` so the Storage page now shows explicit Samba-share setup instructions, renames the saved-entry section, and adds a separate live system mount table backed by `active_mounts`.
+- Updated the Media page copy to make the new folder/rename/delete actions visible in the UI text.
+- Validation completed: `python -m py_compile project/web/server.py project/web/storage_support.py`.
+- Validation completed: `node --check project/web/static/app.js`.

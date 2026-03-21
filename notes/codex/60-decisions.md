@@ -64,3 +64,5 @@
 - Filter the Storage page USB/NVMe picker candidates to only unmounted and unplanned local devices, because showing auto-mounted or already-configured drives makes the setup flow imply there is still something to add when there is not.
 - Extend the existing Media page for Task 15 instead of creating a second share-management surface, because the project already exposes the shared media library there and folder/file actions belong next to browsing and selection.
 - Clear the selected bedside media when that file or its containing folder is renamed or deleted through the web UI, because keeping a stale selection would point the runtime at a path that no longer exists.
+- Show live system mounts in a separate Storage page section instead of relying on the saved Clock storage-entry list, because operators need to see every currently mounted drive/share without confusing that state with the subset managed by Clock.
+- Treat the Samba form as the new-share entrypoint and say that explicitly in the UI copy, because the previous wording did not make it obvious where a new network share should be created.

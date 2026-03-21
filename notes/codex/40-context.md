@@ -63,3 +63,4 @@
 - Task 14 storage follow-up: the Storage page now presents detected USB and NVMe devices through dropdown pickers instead of full tables, while keeping the existing mount forms and copy-into-form workflow.
 - Storage detection follow-up: the Storage page now filters out USB and NVMe devices that are already mounted or already represented by a saved local storage entry, so the picker only shows devices that are still available to plan.
 - Task 15 media-management follow-up: the Media page now supports creating folders plus renaming and deleting files or folders in the shared Samba-backed media library, and the server clears the selected bedside media automatically if that selected entry is renamed or deleted.
+- Task 15 storage/share clarification follow-up: the Storage page now distinguishes saved Clock storage entries from the live system mount list and explicitly tells the operator to use the Samba form plus Save Samba share to add a new network share.
