@@ -215,3 +215,11 @@
 - Validation completed: `node --check project/web/static/app.js`.
 - Validation completed: `python -m py_compile project/web/server.py project/web/storage_support.py`.
 - Validation completed: reviewed the storage UI diff with `git diff -- project/web/static/index.html project/web/static/app.js project/web/static/styles.css`.
+
+## 2026-03-21 Storage detection follow-up
+- Investigated a Storage page issue where auto-mounted local drives still appeared as selectable USB/NVMe devices even when there was nothing left to mount manually.
+- Updated `project/web/storage_support.py` to filter detected local devices against current mount state and saved local storage entry sources before returning picker candidates.
+- Updated `project/web/static/app.js` so the empty picker state now distinguishes between `no devices detected` and `devices already mounted or already planned`.
+- Validation completed: `python -m py_compile project/web/server.py project/web/storage_support.py`.
+- Validation completed: `node --check project/web/static/app.js`.
+- Validation completed: ran a targeted Python smoke test that mocked one mounted USB device, one already-planned NVMe device, and one free USB device, and confirmed only the free USB device remained in `detected_groups`.

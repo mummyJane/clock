@@ -252,6 +252,19 @@ def classify_device(path: str, transport: str) -> str:
     return "other"
 
 
+def local_device_matches_source(device: dict[str, Any], source: str) -> bool:
+    path = str(device.get("path", "")).strip()
+    uuid = str(device.get("uuid", "")).strip()
+    normalized_source = str(source).strip()
+    if not normalized_source:
+        return False
+    if normalized_source == path:
+        return True
+    if uuid and normalized_source == f"/dev/disk/by-uuid/{uuid}":
+        return True
+    return False
+
+
 def build_storage_overview(config: dict[str, Any], mounts: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     cleaned = validate_storage_config(config)
     active_mounts = mounts or []
@@ -266,21 +279,48 @@ def build_storage_overview(config: dict[str, Any], mounts: list[dict[str, Any]] 
         entries.append(details)
 
     devices = list_storage_devices()
+    local_entry_sources = [entry["source"] for entry in cleaned["entries"] if entry.get("kind") in {"usb", "nvme"}]
+    filtered_devices: list[dict[str, Any]] = []
+    skipped_devices: list[dict[str, Any]] = []
+
+    for device in devices:
+        mount_point = str(device.get("mount_point", "")).strip()
+        is_planned = any(local_device_matches_source(device, source) for source in local_entry_sources)
+        skip_reason = ""
+        if mount_point:
+            skip_reason = "mounted"
+        elif is_planned:
+            skip_reason = "planned"
+
+        if skip_reason:
+            skipped_device = dict(device)
+            skipped_device["skip_reason"] = skip_reason
+            skipped_devices.append(skipped_device)
+        else:
+            filtered_devices.append(device)
+
     return {
         "entries": entries,
         "last_apply": cleaned["last_apply"],
-        "detected_devices": devices,
+        "detected_devices": filtered_devices,
         "detected_counts": {
-            "usb": sum(1 for item in devices if item.get("storage_class") == "usb"),
-            "nvme": sum(1 for item in devices if item.get("storage_class") == "nvme"),
+            "usb": sum(1 for item in filtered_devices if item.get("storage_class") == "usb"),
+            "nvme": sum(1 for item in filtered_devices if item.get("storage_class") == "nvme"),
         },
         "detected_groups": {
-            "usb": [item for item in devices if item.get("storage_class") == "usb"],
-            "nvme": [item for item in devices if item.get("storage_class") == "nvme"],
+            "usb": [item for item in filtered_devices if item.get("storage_class") == "usb"],
+            "nvme": [item for item in filtered_devices if item.get("storage_class") == "nvme"],
+        },
+        "skipped_detected_counts": {
+            "usb": sum(1 for item in skipped_devices if item.get("storage_class") == "usb"),
+            "nvme": sum(1 for item in skipped_devices if item.get("storage_class") == "nvme"),
+        },
+        "skipped_detected_groups": {
+            "usb": [item for item in skipped_devices if item.get("storage_class") == "usb"],
+            "nvme": [item for item in skipped_devices if item.get("storage_class") == "nvme"],
         },
         "active_mounts": active_mounts,
     }
-
 
 def render_storage_preview(config: dict[str, Any], credentials_dir: Path) -> dict[str, Any]:
     cleaned = validate_storage_config(config)

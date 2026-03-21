@@ -61,3 +61,4 @@
 - Task 14 refinement: the Storage page is now split into dedicated NVMe, USB, and Samba sections, with detected-device lists for the local-drive sections and direct SMB credentials fields for Samba shares.
 - Task 14 refinement: local storage entries now carry explicit `auto_mount` and `format_if_needed` flags, and formatting only runs for blank local devices when the operator enables that option.
 - Task 14 storage follow-up: the Storage page now presents detected USB and NVMe devices through dropdown pickers instead of full tables, while keeping the existing mount forms and copy-into-form workflow.
+- Storage detection follow-up: the Storage page now filters out USB and NVMe devices that are already mounted or already represented by a saved local storage entry, so the picker only shows devices that are still available to plan.

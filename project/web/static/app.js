@@ -724,9 +724,12 @@ function populateStorageForm(entry) {
   }
 }
 
-function renderDetectedStoragePicker(devices, container, kind) {
+function renderDetectedStoragePicker(devices, container, kind, skippedCount = 0) {
   if (!devices.length) {
-    container.innerHTML = `<p class="support-copy">No ${kind.toUpperCase()} devices detected right now.</p>`;
+    const message = skippedCount
+      ? `No ${kind.toUpperCase()} devices are available to add right now. Detected devices are already mounted or already planned.`
+      : `No ${kind.toUpperCase()} devices detected right now.`;
+    container.innerHTML = `<p class="support-copy">${message}</p>`;
     return;
   }
 
@@ -830,6 +833,7 @@ function renderStorageState(storageState) {
   currentStorageState = storageState || currentStorageState;
   const counts = currentStorageState.detected_counts || { usb: 0, nvme: 0 };
   const groups = currentStorageState.detected_groups || { usb: [], nvme: [] };
+  const skippedCounts = currentStorageState.skipped_detected_counts || { usb: 0, nvme: 0 };
   const lastApply = currentStorageState.last_apply || { status: "never", message: "", applied_at: "never", details: [] };
 
   storageUsbCountEl.textContent = String(counts.usb || 0);
@@ -837,8 +841,8 @@ function renderStorageState(storageState) {
   storageEntryCountEl.textContent = String((currentStorageState.entries || []).length);
   storageLastApplyEl.textContent = lastApply.applied_at && lastApply.applied_at !== "never" ? formatLocalDateTime(lastApply.applied_at) : "Never";
   storageApplySummaryEl.textContent = lastApply.message || "Storage mounts have not been applied yet.";
-  renderDetectedStoragePicker(groups.nvme || [], storageNvmeDevicesEl, "nvme");
-  renderDetectedStoragePicker(groups.usb || [], storageUsbDevicesEl, "usb");
+  renderDetectedStoragePicker(groups.nvme || [], storageNvmeDevicesEl, "nvme", skippedCounts.nvme || 0);
+  renderDetectedStoragePicker(groups.usb || [], storageUsbDevicesEl, "usb", skippedCounts.usb || 0);
   renderStorageEntries(currentStorageState.entries || []);
 }
 

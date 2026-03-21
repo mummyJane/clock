@@ -129,3 +129,7 @@
 ## storage UI follow-up 2026-03-21
 - add dropdown selectors for detected USB and NVMe devices on the Storage page
 - status: done 2026-03-21
+
+## storage detection follow-up 2026-03-21
+- hide already-mounted and already-planned local devices from the Storage page pickers
+- status: done 2026-03-21
