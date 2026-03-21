@@ -94,3 +94,4 @@
 ## Storage UI follow-up 2026-03-21
 - replace the detected USB and NVMe device tables on the Storage page with dropdown selectors that still copy the selected device into the existing mount form
 - filter detected USB and NVMe candidates so already-mounted or already-planned local devices are not offered again in the Storage page picker
+- add web-side media library management for the shared Samba-backed media folder, including folder create plus file/folder rename and delete actions

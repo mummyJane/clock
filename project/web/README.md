@@ -33,6 +33,9 @@ The server listens on port `8080` by default and serves:
 - `GET /api/media/state` to read the current selected media file and playback state
 - `POST /api/media/select` to choose an image, audio file, or video file for bedside playback
 - `POST /api/media/action` to send `play`, `pause`, `stop`, or `clear` playback actions
+- `POST /api/media/folder` to create a folder inside the shared media library
+- `POST /api/media/rename` to rename a file or folder inside the shared media library
+- `POST /api/media/delete` to remove a file or folder from the shared media library
 - `GET /media/<path>` to stream a file from the media root with range support for audio/video playback
 - `POST /api/actions/reboot` to request an immediate system reboot through `sudo shutdown -r now`
 - `POST /api/actions/halt` to request an immediate system halt through `sudo shutdown -h now`
@@ -80,6 +83,8 @@ Set `CLOCK_POWER_ACTION_MODE=mock` when testing the reboot and halt endpoints in
 Use `CLOCK_FFMPEG_BIN` and `CLOCK_FFPROBE_BIN` if `ffmpeg` or `ffprobe` are not on the default path. For selected `.mp4`, `.m4v`, and `.mov` files, the server now first probes the codecs, then prefers a fast MP4 remux when the source already uses browser-friendly H.264/AAC-class codecs, and only falls back to an H.264/AAC preparation pass when re-encoding is required.
 
 The built-in alarm module uses the shared media library paths from Task 10. Alarm playback currently expects supported audio files and restores the previous bedside media selection after the alarm is stopped.
+
+The Media page now also supports simple library management for the shared Samba-backed folder: create folders, rename entries, and delete files or folders directly from the web UI. If the currently selected bedside media is renamed or deleted there, the server clears that stale selection automatically.
 
 The Alarm module page now also includes an inline audio-file browser to help pick alarm audio from the shared media library, and existing alarms can be edited in place instead of only being toggled or deleted.
 

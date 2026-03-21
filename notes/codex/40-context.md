@@ -62,3 +62,4 @@
 - Task 14 refinement: local storage entries now carry explicit `auto_mount` and `format_if_needed` flags, and formatting only runs for blank local devices when the operator enables that option.
 - Task 14 storage follow-up: the Storage page now presents detected USB and NVMe devices through dropdown pickers instead of full tables, while keeping the existing mount forms and copy-into-form workflow.
 - Storage detection follow-up: the Storage page now filters out USB and NVMe devices that are already mounted or already represented by a saved local storage entry, so the picker only shows devices that are still available to plan.
+- Task 15 media-management follow-up: the Media page now supports creating folders plus renaming and deleting files or folders in the shared Samba-backed media library, and the server clears the selected bedside media automatically if that selected entry is renamed or deleted.

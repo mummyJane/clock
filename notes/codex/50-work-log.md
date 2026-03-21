@@ -223,3 +223,12 @@
 - Validation completed: `python -m py_compile project/web/server.py project/web/storage_support.py`.
 - Validation completed: `node --check project/web/static/app.js`.
 - Validation completed: ran a targeted Python smoke test that mocked one mounted USB device, one already-planned NVMe device, and one free USB device, and confirmed only the free USB device remained in `detected_groups`.
+
+## 2026-03-21 Task 15 media management follow-up
+- Re-read `AGENTS.md`, `notes/codex/10-spec.md`, `notes/codex/20-plan.md`, `notes/codex/30-tasks.md`, and `notes/codex/40-context.md` before implementing the next Task 15 slice.
+- Extended `project/web/server.py` with media-library mutation helpers and new `POST /api/media/folder`, `POST /api/media/rename`, and `POST /api/media/delete` endpoints.
+- Updated `project/web/static/index.html`, `project/web/static/app.js`, and `project/web/static/styles.css` so the Media page can create folders and rename or delete files and folders from the shared library.
+- Updated `project/web/README.md` to document the new media-management endpoints and Media page behavior.
+- Validation completed: `python -m py_compile project/web/server.py project/web/storage_support.py`.
+- Validation completed: `node --check project/web/static/app.js`.
+- Validation completed: ran a workspace-local Python smoke test under `D:\clock\.codex-temp-tests\task15-media` to create a folder, rename a selected audio file, confirm the selected-media state was cleared, and then delete the containing folder.

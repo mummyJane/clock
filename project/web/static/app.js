@@ -25,6 +25,7 @@ const mediaCurrentPathEl = document.getElementById("mediaCurrentPath");
 const mediaSelectionEl = document.getElementById("mediaSelection");
 const mediaBrowserEl = document.getElementById("mediaBrowser");
 const mediaStatusEl = document.getElementById("mediaStatus");
+const createMediaFolderEl = document.getElementById("createMediaFolder");
 const clearMediaSelectionEl = document.getElementById("clearMediaSelection");
 const alarmModuleSettingsFormEl = document.getElementById("alarmModuleSettingsForm");
 const alarmModuleFormStatusEl = document.getElementById("alarmModuleFormStatus");
@@ -289,6 +290,19 @@ function renderMediaState(state) {
   clearMediaSelectionEl.disabled = false;
 }
 
+function mediaEntryActions(entry) {
+  const renameButton = `<button class="ghost-button" type="button" data-rename-media="${escapeHtml(entry.relative_path)}" data-media-name="${escapeHtml(entry.name)}">Rename</button>`;
+  const deleteButton = `<button class="ghost-button" type="button" data-delete-media="${escapeHtml(entry.relative_path)}" data-media-name="${escapeHtml(entry.name)}">Delete</button>`;
+  if (entry.type === "directory") {
+    return `${renameButton}${deleteButton}<button class="primary-button" type="button" data-media-path="${escapeHtml(entry.relative_path)}">Open</button>`;
+  }
+
+  const selectButton = entry.selectable
+    ? `<button class="primary-button" type="button" data-select-media="${escapeHtml(entry.relative_path)}">Select</button>`
+    : `<span class="media-entry-note">Unsupported</span>`;
+  return `${renameButton}${deleteButton}${selectButton}`;
+}
+
 function renderMediaBrowser(listing) {
   currentMediaPath = listing.current_path || "";
   mediaSharePathEl.textContent = listing.share_path || "Unknown";
@@ -315,21 +329,18 @@ function renderMediaBrowser(listing) {
                 <h3>${escapeHtml(entry.name)}</h3>
                 <p>Folder</p>
               </div>
-              <button class="primary-button" type="button" data-media-path="${escapeHtml(entry.relative_path)}">Open</button>
+              <div class="media-entry-actions">${mediaEntryActions(entry)}</div>
             </article>
           `;
         }
 
-        const actionButton = entry.selectable
-          ? `<button class="primary-button" type="button" data-select-media="${escapeHtml(entry.relative_path)}">Select</button>`
-          : `<span class="media-entry-note">Unsupported</span>`;
         return `
           <article class="media-entry-card">
             <div>
               <h3>${escapeHtml(entry.name)}</h3>
               <p>${escapeHtml(entry.kind)} | ${entry.size_bytes || 0} bytes</p>
             </div>
-            ${actionButton}
+            <div class="media-entry-actions">${mediaEntryActions(entry)}</div>
           </article>
         `;
       }).join("")}
@@ -1154,6 +1165,57 @@ async function sendMediaAction(action) {
   }
 }
 
+function applyMediaMutationResult(result) {
+  if (result.listing) {
+    renderMediaBrowser(result.listing);
+  }
+  if (result.media_state) {
+    renderMediaState(result.media_state);
+  }
+  mediaStatusEl.textContent = result.message || "Media library updated.";
+}
+
+async function createMediaFolder() {
+  const folderName = window.prompt("New folder name", "");
+  if (!folderName) {
+    return;
+  }
+  mediaStatusEl.textContent = "Creating folder...";
+  const result = await getJson("/api/media/folder", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ parent_path: currentMediaPath, name: folderName }),
+  });
+  applyMediaMutationResult(result);
+}
+
+async function renameMediaEntry(relativePath, currentName) {
+  const nextName = window.prompt("Rename entry", currentName || "");
+  if (!nextName || nextName === currentName) {
+    return;
+  }
+  mediaStatusEl.textContent = "Renaming entry...";
+  const result = await getJson("/api/media/rename", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ relative_path: relativePath, new_name: nextName }),
+  });
+  applyMediaMutationResult(result);
+}
+
+async function deleteMediaEntry(relativePath, currentName) {
+  if (!window.confirm(`Delete ${currentName || relativePath}?`)) {
+    return;
+  }
+  mediaStatusEl.textContent = "Deleting entry...";
+  const result = await getJson("/api/media/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ relative_path: relativePath }),
+  });
+  applyMediaMutationResult(result);
+}
+
 function applyAlarmMutation(result) {
   if (result.modules) {
     renderModules(result.modules);
@@ -1260,6 +1322,12 @@ clearMediaSelectionEl.addEventListener("click", () => {
   sendMediaAction("clear");
 });
 
+createMediaFolderEl.addEventListener("click", () => {
+  createMediaFolder().catch((error) => {
+    mediaStatusEl.textContent = error.message;
+  });
+});
+
 mediaBrowserEl.addEventListener("click", (event) => {
   const pathButton = event.target.closest("[data-media-path]");
   if (pathButton) {
@@ -1272,6 +1340,22 @@ mediaBrowserEl.addEventListener("click", (event) => {
   const selectButton = event.target.closest("[data-select-media]");
   if (selectButton) {
     selectMedia(selectButton.dataset.selectMedia);
+    return;
+  }
+
+  const renameButton = event.target.closest("[data-rename-media]");
+  if (renameButton) {
+    renameMediaEntry(renameButton.dataset.renameMedia, renameButton.dataset.mediaName).catch((error) => {
+      mediaStatusEl.textContent = error.message;
+    });
+    return;
+  }
+
+  const deleteButton = event.target.closest("[data-delete-media]");
+  if (deleteButton) {
+    deleteMediaEntry(deleteButton.dataset.deleteMedia, deleteButton.dataset.mediaName).catch((error) => {
+      mediaStatusEl.textContent = error.message;
+    });
   }
 });
 

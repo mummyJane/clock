@@ -621,6 +621,111 @@ def resolve_current_media_playback_path() -> Path:
     return source_path
 
 
+def clean_media_entry_name(value: str) -> str:
+    cleaned = str(value or "").strip().replace("\\", "/")
+    if not cleaned or "/" in cleaned or cleaned in {".", ".."}:
+        raise ValueError("Media name is invalid.")
+    return cleaned
+
+
+
+def media_path_affects_selection(relative_path: str) -> bool:
+    selected_file = str(load_media_state().get("selected_file", "")).strip()
+    target = clean_media_relative_path(relative_path)
+    if not selected_file or not target:
+        return False
+    return selected_file == target or selected_file.startswith(f"{target}/")
+
+
+
+def clear_selected_media_for_missing_path(relative_path: str) -> dict[str, Any] | None:
+    if not media_path_affects_selection(relative_path):
+        return None
+    cleanup_media_temp_files()
+    return save_media_state(
+        {
+            "selected_file": "",
+            "selected_kind": "none",
+            "playback_state": "stopped",
+            "playback_status": "idle",
+            "playback_url": "",
+            "message": "Selected media was removed or renamed.",
+            "updated_at": current_timestamp(),
+        }
+    )
+
+
+
+def parent_media_relative_path(relative_path: str) -> str:
+    cleaned = clean_media_relative_path(relative_path)
+    if not cleaned:
+        return ""
+    parent = Path(cleaned).parent
+    return "" if str(parent) == "." else parent.as_posix()
+
+
+
+def create_media_folder(parent_path: str, name: str) -> dict[str, Any]:
+    directory = resolve_media_path(parent_path)
+    if not directory.exists() or not directory.is_dir():
+        raise ValueError("Parent media path is not a directory.")
+    folder_name = clean_media_entry_name(name)
+    target = (directory / folder_name).resolve()
+    if target.exists():
+        raise ValueError("A media file or folder with that name already exists.")
+    if not str(target).startswith(str(MEDIA_ROOT.resolve())):
+        raise ValueError("Media path escapes the media root.")
+    target.mkdir(parents=False, exist_ok=False)
+    parent_relative = clean_media_relative_path(parent_path)
+    return {
+        "listing": list_media_entries(parent_relative),
+        "media_state": load_media_state(),
+        "message": f"Created folder {folder_name}.",
+    }
+
+
+
+def rename_media_entry(relative_path: str, new_name: str) -> dict[str, Any]:
+    source = resolve_media_path(relative_path)
+    if not source.exists():
+        raise ValueError("Media entry does not exist.")
+    target_name = clean_media_entry_name(new_name)
+    target = (source.parent / target_name).resolve()
+    if target.exists():
+        raise ValueError("A media file or folder with that name already exists.")
+    if not str(target).startswith(str(MEDIA_ROOT.resolve())):
+        raise ValueError("Media path escapes the media root.")
+    source_relative = clean_media_relative_path(relative_path)
+    source.rename(target)
+    media_state = clear_selected_media_for_missing_path(source_relative)
+    parent_relative = parent_media_relative_path(source_relative)
+    return {
+        "listing": list_media_entries(parent_relative),
+        "media_state": media_state or load_media_state(),
+        "message": f"Renamed {source.name} to {target_name}.",
+    }
+
+
+
+def delete_media_entry(relative_path: str) -> dict[str, Any]:
+    target = resolve_media_path(relative_path)
+    if not target.exists():
+        raise ValueError("Media entry does not exist.")
+    target_relative = clean_media_relative_path(relative_path)
+    if target.is_dir():
+        shutil.rmtree(target)
+    else:
+        target.unlink()
+    media_state = clear_selected_media_for_missing_path(target_relative)
+    parent_relative = parent_media_relative_path(target_relative)
+    return {
+        "listing": list_media_entries(parent_relative),
+        "media_state": media_state or load_media_state(),
+        "message": f"Deleted {Path(target_relative).name}.",
+    }
+
+
+
 def list_media_entries(relative_path: str = "") -> dict[str, Any]:
     directory = resolve_media_path(relative_path)
     if not directory.exists():
@@ -1651,6 +1756,15 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/media/action":
             self.handle_media_action()
             return
+        if parsed.path == "/api/media/folder":
+            self.handle_media_create_folder()
+            return
+        if parsed.path == "/api/media/rename":
+            self.handle_media_rename()
+            return
+        if parsed.path == "/api/media/delete":
+            self.handle_media_delete()
+            return
         if parsed.path == "/api/alarm/add":
             self.handle_add_alarm()
             return
@@ -1765,6 +1879,48 @@ class ClockRequestHandler(BaseHTTPRequestHandler):
             self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
             return
         self.send_json(state, HTTPStatus.OK)
+
+    def handle_media_create_folder(self) -> None:
+        content_length = int(self.headers.get("Content-Length", "0"))
+        raw_body = self.rfile.read(content_length)
+        try:
+            payload = json.loads(raw_body.decode("utf-8"))
+            result = create_media_folder(str(payload.get("parent_path", "")), str(payload.get("name", "")))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            self.send_json({"error": f"Invalid JSON payload: {exc}"}, HTTPStatus.BAD_REQUEST)
+            return
+        except ValueError as exc:
+            self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        self.send_json(result, HTTPStatus.OK)
+
+    def handle_media_rename(self) -> None:
+        content_length = int(self.headers.get("Content-Length", "0"))
+        raw_body = self.rfile.read(content_length)
+        try:
+            payload = json.loads(raw_body.decode("utf-8"))
+            result = rename_media_entry(str(payload.get("relative_path", "")), str(payload.get("new_name", "")))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            self.send_json({"error": f"Invalid JSON payload: {exc}"}, HTTPStatus.BAD_REQUEST)
+            return
+        except ValueError as exc:
+            self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        self.send_json(result, HTTPStatus.OK)
+
+    def handle_media_delete(self) -> None:
+        content_length = int(self.headers.get("Content-Length", "0"))
+        raw_body = self.rfile.read(content_length)
+        try:
+            payload = json.loads(raw_body.decode("utf-8"))
+            result = delete_media_entry(str(payload.get("relative_path", "")))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            self.send_json({"error": f"Invalid JSON payload: {exc}"}, HTTPStatus.BAD_REQUEST)
+            return
+        except ValueError as exc:
+            self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+        self.send_json(result, HTTPStatus.OK)
 
 
     def handle_add_alarm(self) -> None:

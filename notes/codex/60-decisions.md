@@ -62,3 +62,5 @@
 
 - Replace the Task 14 detected USB/NVMe device tables with dropdown selectors while keeping the existing mount forms, because the touchscreen setup flow is simpler when the operator picks one detected device at a time instead of scanning a full table.
 - Filter the Storage page USB/NVMe picker candidates to only unmounted and unplanned local devices, because showing auto-mounted or already-configured drives makes the setup flow imply there is still something to add when there is not.
+- Extend the existing Media page for Task 15 instead of creating a second share-management surface, because the project already exposes the shared media library there and folder/file actions belong next to browsing and selection.
+- Clear the selected bedside media when that file or its containing folder is renamed or deleted through the web UI, because keeping a stale selection would point the runtime at a path that no longer exists.

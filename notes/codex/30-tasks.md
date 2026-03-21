@@ -133,3 +133,8 @@
 ## storage detection follow-up 2026-03-21
 - hide already-mounted and already-planned local devices from the Storage page pickers
 - status: done 2026-03-21
+
+## task 15 media management follow-up 2026-03-21
+- add web controls for creating folders and renaming or deleting files and folders in the shared media library
+- clear stale bedside media selection automatically when the selected file is renamed or deleted from the media library
+- status: done 2026-03-21
