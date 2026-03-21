@@ -139,6 +139,20 @@ function titleCase(value) {
     .join(" ");
 }
 
+function describeDetectedStorageDevice(device) {
+  if (!device) {
+    return "";
+  }
+
+  return [
+    device.label || device.model || device.name || "Unnamed",
+    device.path || "",
+    `FS: ${device.filesystem || "None"}`,
+    `Size: ${device.size || "Unknown"}`,
+    `Mounted: ${device.mount_point || "Not mounted"}`,
+  ].join(" | ");
+}
+
 function renderClockPreview(settings) {
   document.getElementById("clockPreviewTitle").textContent = `${titleCase(settings.display_type)} clock preview`;
   document.getElementById("clockPreviewHourMode").textContent = settings.hour_mode === "12" ? "12-hour" : "24-hour";
@@ -710,39 +724,65 @@ function populateStorageForm(entry) {
   }
 }
 
-function renderDetectedStorageTable(devices, container, kind) {
+function renderDetectedStoragePicker(devices, container, kind) {
   if (!devices.length) {
     container.innerHTML = `<p class="support-copy">No ${kind.toUpperCase()} devices detected right now.</p>`;
     return;
   }
 
+  const selectedDevice = devices[0];
   container.innerHTML = `
-    <table class="mount-table">
-      <thead>
-        <tr>
-          <th>Device</th>
-          <th>Filesystem</th>
-          <th>Size</th>
-          <th>Mounted at</th>
-          <th>Use</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${devices.map((device) => `
-          <tr>
-            <td>
-              <strong>${escapeHtml(device.path)}</strong><br>
-              <span class="support-copy">${escapeHtml(device.label || device.model || device.name || "Unnamed")}</span>
-            </td>
-            <td>${escapeHtml(device.filesystem || "None")}</td>
-            <td>${escapeHtml(device.size || "Unknown")}</td>
-            <td>${escapeHtml(device.mount_point || "Not mounted")}</td>
-            <td><button class="ghost-button" type="button" data-storage-use="${escapeHtml(kind)}" data-storage-path="${escapeHtml(device.path)}" data-storage-filesystem="${escapeHtml(device.filesystem || (kind === "nvme" ? "ext4" : "auto"))}">Use</button></td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
+    <div class="storage-device-picker">
+      <label>
+        <span>${escapeHtml(kind.toUpperCase())} device</span>
+        <select data-storage-select="${escapeHtml(kind)}">
+          ${devices.map((device, index) => `
+            <option
+              value="${escapeHtml(device.path)}"
+              data-storage-filesystem="${escapeHtml(device.filesystem || (kind === "nvme" ? "ext4" : "auto"))}"
+              ${index === 0 ? "selected" : ""}
+            >
+              ${escapeHtml(`${device.label || device.model || device.name || "Unnamed"} (${device.path})`)}
+            </option>
+          `).join("")}
+        </select>
+      </label>
+      <button class="ghost-button" type="button" data-storage-apply-selection="${escapeHtml(kind)}">Use selected device</button>
+      <p class="support-copy" data-storage-details="${escapeHtml(kind)}">${escapeHtml(describeDetectedStorageDevice(selectedDevice))}</p>
+    </div>
   `;
+}
+
+function applyDetectedStorageSelection(kind, container) {
+  const select = container.querySelector(`[data-storage-select="${kind}"]`);
+  if (!select) {
+    return;
+  }
+
+  const selectedOption = select.options[select.selectedIndex];
+  const path = selectedOption?.value || "";
+  const filesystem = selectedOption?.dataset.storageFilesystem || (kind === "nvme" ? "ext4" : "auto");
+  if (kind === "nvme") {
+    document.getElementById("nvmeSource").value = path;
+    document.getElementById("nvmeFilesystem").value = filesystem;
+    setStorageStatus("nvme", "Selected device copied into the NVMe form.");
+    return;
+  }
+
+  document.getElementById("usbSource").value = path;
+  document.getElementById("usbFilesystem").value = filesystem;
+  setStorageStatus("usb", "Selected device copied into the USB form.");
+}
+
+function updateDetectedStorageDetails(kind, container, devices) {
+  const select = container.querySelector(`[data-storage-select="${kind}"]`);
+  const details = container.querySelector(`[data-storage-details="${kind}"]`);
+  if (!select || !details) {
+    return;
+  }
+
+  const selectedDevice = devices.find((device) => device.path === select.value) || devices[0] || null;
+  details.textContent = describeDetectedStorageDevice(selectedDevice);
 }
 
 function renderStorageEntries(entries) {
@@ -797,8 +837,8 @@ function renderStorageState(storageState) {
   storageEntryCountEl.textContent = String((currentStorageState.entries || []).length);
   storageLastApplyEl.textContent = lastApply.applied_at && lastApply.applied_at !== "never" ? formatLocalDateTime(lastApply.applied_at) : "Never";
   storageApplySummaryEl.textContent = lastApply.message || "Storage mounts have not been applied yet.";
-  renderDetectedStorageTable(groups.nvme || [], storageNvmeDevicesEl, "nvme");
-  renderDetectedStorageTable(groups.usb || [], storageUsbDevicesEl, "usb");
+  renderDetectedStoragePicker(groups.nvme || [], storageNvmeDevicesEl, "nvme");
+  renderDetectedStoragePicker(groups.usb || [], storageUsbDevicesEl, "usb");
   renderStorageEntries(currentStorageState.entries || []);
 }
 
@@ -1380,24 +1420,34 @@ applyStorageButtonEl.addEventListener("click", () => {
   });
 });
 
+storageNvmeDevicesEl.addEventListener("change", (event) => {
+  if (!event.target.closest("[data-storage-select='nvme']")) {
+    return;
+  }
+  updateDetectedStorageDetails("nvme", storageNvmeDevicesEl, currentStorageState.detected_groups?.nvme || []);
+});
+
 storageNvmeDevicesEl.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-storage-use]");
+  const button = event.target.closest("[data-storage-apply-selection='nvme']");
   if (!button) {
     return;
   }
-  document.getElementById("nvmeSource").value = button.dataset.storagePath || "";
-  document.getElementById("nvmeFilesystem").value = button.dataset.storageFilesystem || "ext4";
-  setStorageStatus("nvme", "Device source copied into the NVMe form.");
+  applyDetectedStorageSelection("nvme", storageNvmeDevicesEl);
+});
+
+storageUsbDevicesEl.addEventListener("change", (event) => {
+  if (!event.target.closest("[data-storage-select='usb']")) {
+    return;
+  }
+  updateDetectedStorageDetails("usb", storageUsbDevicesEl, currentStorageState.detected_groups?.usb || []);
 });
 
 storageUsbDevicesEl.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-storage-use]");
+  const button = event.target.closest("[data-storage-apply-selection='usb']");
   if (!button) {
     return;
   }
-  document.getElementById("usbSource").value = button.dataset.storagePath || "";
-  document.getElementById("usbFilesystem").value = button.dataset.storageFilesystem || "auto";
-  setStorageStatus("usb", "Device source copied into the USB form.");
+  applyDetectedStorageSelection("usb", storageUsbDevicesEl);
 });
 
 storageEntriesEl.addEventListener("click", (event) => {

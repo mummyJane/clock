@@ -90,3 +90,6 @@
 - detect attached USB and NVMe devices from the local system
 - persist the storage plan and add an apply action that writes managed mount config on the device
 - install the privileged storage helper and supporting packages needed for SMB and NVMe management
+
+## Storage UI follow-up 2026-03-21
+- replace the detected USB and NVMe device tables on the Storage page with dropdown selectors that still copy the selected device into the existing mount form

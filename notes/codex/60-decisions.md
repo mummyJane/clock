@@ -60,3 +60,4 @@
 - Split the Task 14 storage UI into dedicated NVMe, USB, and Samba sections instead of a single generic form, because the operator tasks and required fields differ materially between those storage types.
 - Gate local-drive formatting behind an explicit `format if needed` flag and only run it when the target device has no filesystem, because formatting should be possible from the touchscreen flow but must stay opt-in and narrowly scoped.
 
+- Replace the Task 14 detected USB/NVMe device tables with dropdown selectors while keeping the existing mount forms, because the touchscreen setup flow is simpler when the operator picks one detected device at a time instead of scanning a full table.

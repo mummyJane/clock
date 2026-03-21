@@ -126,7 +126,7 @@
 
             <article class="panel panel-wide">
               <div class="panel-header"><h2>NVMe</h2></div>
-              <p class="support-copy">Scan the local PCIe drives, pick one if present, choose whether it should auto-mount, and optionally format it the first time if it has no filesystem yet.</p>
+              <p class="support-copy">Scan the local PCIe drives, pick one from the dropdown if present, choose whether it should auto-mount, and optionally format it the first time if it has no filesystem yet.</p>
               <div id="storageNvmeDevices" class="mount-list">Loading NVMe devices...</div>
               <form id="nvmeStorageForm" class="storage-entry-form">
                 <input id="nvmeEntryId" type="hidden" value="">
@@ -148,7 +148,7 @@
 
             <article class="panel panel-wide">
               <div class="panel-header"><h2>USB</h2></div>
-              <p class="support-copy">Scan attached USB drives, choose one from the list, and save a mount plan for it.</p>
+              <p class="support-copy">Scan attached USB drives, choose one from the dropdown, and save a mount plan for it.</p>
               <div id="storageUsbDevices" class="mount-list">Loading USB devices...</div>
               <form id="usbStorageForm" class="storage-entry-form">
                 <input id="usbEntryId" type="hidden" value="">
@@ -351,3 +351,4 @@
   <script src="/app.js"></script>
 </body>
 </html>
+

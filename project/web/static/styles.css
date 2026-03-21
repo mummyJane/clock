@@ -530,6 +530,16 @@ select {
   margin-top: 18px;
 }
 
+.storage-device-picker {
+  display: grid;
+  gap: 12px;
+}
+
+.storage-device-picker p {
+  margin: 0;
+}
+
 .storage-entry-group h3 {
   margin: 0 0 12px;
 }
+

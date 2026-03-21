@@ -207,3 +207,11 @@
 - Task 14 refinement: added explicit `auto_mount` and `format_if_needed` fields to local storage entries, and updated the privileged storage helper to honor auto-mount options and only format blank local devices when the operator asked for it.
 - Validation completed: reran `python -m py_compile project/web/server.py project/web/storage_support.py`, `node --check project/web/static/app.js`, and a refined mock storage smoke test under `D:\clock\.codex-temp-tests\task14-storage-refine`.
 
+
+## 2026-03-21 Storage UI follow-up
+- Re-read `AGENTS.md`, `notes/codex/10-spec.md`, `notes/codex/20-plan.md`, `notes/codex/30-tasks.md`, and `notes/codex/40-context.md` before editing the storage UI.
+- Updated `project/web/static/index.html`, `project/web/static/app.js`, and `project/web/static/styles.css` so detected NVMe and USB devices render as dropdown pickers with a selected-device summary and a button that copies the chosen device into the existing mount form.
+- Tooling issue: `apply_patch` failed again in this Windows workspace with `windows sandbox: setup refresh failed with status exit code: 1`, so the file edits were completed through workspace-local PowerShell/Node writes instead.
+- Validation completed: `node --check project/web/static/app.js`.
+- Validation completed: `python -m py_compile project/web/server.py project/web/storage_support.py`.
+- Validation completed: reviewed the storage UI diff with `git diff -- project/web/static/index.html project/web/static/app.js project/web/static/styles.css`.

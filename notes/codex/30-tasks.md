@@ -125,3 +125,7 @@
 
 ## task 20
 - do release 0.6.0
+
+## storage UI follow-up 2026-03-21
+- add dropdown selectors for detected USB and NVMe devices on the Storage page
+- status: done 2026-03-21
